@@ -1,4 +1,5 @@
 ﻿#nullable disable
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace StolenMeatMod
@@ -13,6 +14,7 @@ namespace StolenMeatMod
         public string ObjectGuid;
         public float DespawnTime;
 
+        [JsonIgnore]
         public Vector3 Position
         {
             get
