@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using static Il2Cpp.CarcassSite;
 using static Il2Cpp.PlayerVoice;
 
 namespace StolenMeatMod
@@ -164,7 +165,7 @@ namespace StolenMeatMod
                 if (!isActiveScene)
                 {
                     foreach (MeatInfo meat in meatInScene.Values)
-                    { 
+                    {
                         meat.ElapsedMinutes += delta;
                     }
                     continue;
@@ -260,7 +261,8 @@ namespace StolenMeatMod
                     ObjectGuid = spawnRegionGuid,
                     DespawnTime = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
                 });
-            } catch (Exception e)
+            }
+            catch (Exception e)
             {
                 MelonLogger.Error(e);
             }
@@ -273,7 +275,7 @@ namespace StolenMeatMod
         }
 
 
-        internal SpawnRegion GenerateSpawnRegion(Vector3 position, string guid)
+        internal static SpawnRegion GenerateSpawnRegion(Vector3 position, string guid)
         {
             GameObject go = new GameObject("PredatorSpawnRegion");
             go.transform.position = position;
@@ -294,6 +296,24 @@ namespace StolenMeatMod
             spawnRegion.m_SpawnablePrefab = Addressables.LoadAssetAsync<GameObject>("WILDLIFE_Wolf").WaitForCompletion();
             return spawnRegion;
         }
+
+
+        [HarmonyPatch(typeof(GameManager), nameof(GameManager.LoadSceneWithLoadingScreen), new Type[] { typeof(string) })]
+        private static class GameManagerPatches_LoadSceneWithLoadingScreen
+        {
+            private static void Prefix(string sceneName)
+            {
+                if (!SaveDataManager.SpawnsByScene.TryGetValue(sceneName, out Dictionary<string, SpawnRegionInfo> spawnsInScene)) return;
+                if (spawnsInScene == null) return;
+                if (spawnsInScene.Count == 0) return;
+                foreach (SpawnRegionInfo spawnRegionInfo in spawnsInScene.Values)
+                {
+                    GenerateSpawnRegion(spawnRegionInfo.Position, spawnRegionInfo.ObjectGuid);
+                }
+            }
+        }
+
+
 
         internal static void DebugLog(string msg)
         {
@@ -485,7 +505,7 @@ namespace StolenMeatMod
             }
 
             return;
-            
+
         }
     }
     [HarmonyPatch(typeof(PlayerManager), "PlaceMeshInWorld")]
