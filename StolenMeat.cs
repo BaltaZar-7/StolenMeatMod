@@ -2,6 +2,7 @@
 using HarmonyLib;
 using Il2Cpp;
 using Il2CppTLD.Gameplay;
+using Il2CppTLD.PDID;
 using MelonLoader;
 using MelonLoader.Utils;
 using System.Collections;
@@ -53,7 +54,14 @@ namespace StolenMeatMod
 
             ObjectGuid guidComp = gi.gameObject.GetComponent<ObjectGuid>();
             if (guidComp == null)
-                return string.Empty;
+            {
+                gi.ForceGUIDSetup();
+                guidComp = gi.gameObject.GetComponent<ObjectGuid>();
+                if (guidComp == null)
+                {
+                    return string.Empty;
+                }
+            }
 
             return guidComp.Get();
         }
@@ -135,23 +143,18 @@ namespace StolenMeatMod
                     continue;
                 }
 
-                GearItem[] allItems = UnityEngine.Object.FindObjectsOfType<GearItem>();
+                //GearItem[] allItems = UnityEngine.Object.FindObjectsOfType<GearItem>();
                 FireManager fireMgr = GameManager.GetFireManagerComponent();
 
                 for (int i = list.Count - 1; i >= 0; i--)
                 {
                     MeatInfo meat = list[i];
-                    GearItem gi = null;
 
-                    for (int w = 0; w < allItems.Length; w++)
-                    {
-                        if (Main.GetObjectGuid(allItems[w]) == meat.ObjectGuid)
-                        {
-                            gi = allItems[w];
-                            break;
-                        }
-                    }
+                    GameObject meatGameObject = PdidTable.GetGameObject(meat.ObjectGuid);
+                    if (meatGameObject == null)
+                        continue;
 
+                    GearItem gi = meatGameObject.GetComponent<GearItem>();
                     if (gi == null)
                         continue;
 
@@ -284,12 +287,8 @@ namespace StolenMeatMod
 
             if (gi == null)
                 yield break;
-            gi.ForceGUIDSetup();
-            ObjectGuid guidComp = gi.gameObject.GetComponent<ObjectGuid>();
-            if (guidComp == null)
-                yield break;
 
-            string guid = guidComp.Get();
+            string guid = Main.GetObjectGuid(gi);
             if (string.IsNullOrEmpty(guid))
                 yield break;
 
@@ -340,8 +339,9 @@ namespace StolenMeatMod
                     out List<MeatInfo> list))
                 return;
 
-            __instance.ForceGUIDSetup();
             string guid = Main.GetObjectGuid(__instance);
+            if (string.IsNullOrEmpty(guid))
+                return;
 
             for (int i = list.Count - 1; i >= 0; i--)
             {
