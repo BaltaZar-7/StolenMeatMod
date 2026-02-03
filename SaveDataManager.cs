@@ -19,6 +19,9 @@ namespace StolenMeatMod
         internal static Dictionary<string, Dictionary<string, MeatInfo>> MeatByScene
             = new Dictionary<string, Dictionary<string, MeatInfo>>();
 
+        internal static Dictionary<string, Dictionary<string, SpawnRegionInfo>> SpawnsByScene
+            = new Dictionary<string, Dictionary<string, SpawnRegionInfo>>();
+
         internal static float LastGlobalMinutes;
 
         internal static void RegisterMeat(string scene, GearItem gi)
@@ -73,6 +76,7 @@ namespace StolenMeatMod
             string json = JsonConvert.SerializeObject(new ModSaveData
             {
                 MeatByScene = MeatByScene,
+                SpawnsByScene = SpawnsByScene,
                 LastGlobalMinutes = LastGlobalMinutes
             });
 
@@ -86,6 +90,7 @@ namespace StolenMeatMod
             if (string.IsNullOrEmpty(json))
             {
                 MeatByScene.Clear();
+                SpawnsByScene.Clear();
                 LastGlobalMinutes = 0f;
                 Main.DebugLog("[SaveData] No data");
                 return;
@@ -95,6 +100,7 @@ namespace StolenMeatMod
                 JsonConvert.DeserializeObject<ModSaveData>(json);
 
             MeatByScene = data.MeatByScene ?? new Dictionary<string, Dictionary<string, MeatInfo>>();
+            SpawnsByScene = data.SpawnsByScene ?? new Dictionary<string, Dictionary<string, SpawnRegionInfo>>();
             LastGlobalMinutes = data.LastGlobalMinutes;
 
             Main.DebugLog("[SaveData] Loaded");
