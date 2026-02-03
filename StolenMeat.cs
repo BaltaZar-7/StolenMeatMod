@@ -143,7 +143,6 @@ namespace StolenMeatMod
                     continue;
                 }
 
-                //GearItem[] allItems = UnityEngine.Object.FindObjectsOfType<GearItem>();
                 FireManager fireMgr = GameManager.GetFireManagerComponent();
 
                 foreach (MeatInfo meat in meatInScene.Values)
@@ -207,6 +206,9 @@ namespace StolenMeatMod
         internal void MaybeSpawnPredator(Vector3 position)
         {
             if (!SaveDataManager.SpawnsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
+                return;
+
+            if (thisSceneSpawns.Values.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns)
                 return;
 
             foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
