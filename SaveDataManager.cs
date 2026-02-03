@@ -16,8 +16,8 @@ namespace StolenMeatMod
 
         private const string SUFFIX = "meatdata";
 
-        internal static Dictionary<string, List<MeatInfo>> MeatByScene
-            = new Dictionary<string, List<MeatInfo>>();
+        internal static Dictionary<string, Dictionary<string, MeatInfo>> MeatByScene
+            = new Dictionary<string, Dictionary<string, MeatInfo>>();
 
         internal static float LastGlobalMinutes;
 
@@ -33,20 +33,17 @@ namespace StolenMeatMod
                 return;
             }
 
-            List<MeatInfo> list;
-            if (!MeatByScene.TryGetValue(scene, out list))
+            Dictionary<string, MeatInfo> meatInScene;
+            if (!MeatByScene.TryGetValue(scene, out meatInScene))
             {
-                list = new List<MeatInfo>();
-                MeatByScene.Add(scene, list);
+                meatInScene = new Dictionary<string, MeatInfo>();
+                MeatByScene.Add(scene, meatInScene);
             }
 
-            foreach (MeatInfo m in list)
-            {
-                if (m.ObjectGuid == guid)
-                    return;
-            }
+            if (meatInScene.ContainsKey(guid))
+                return;
 
-            list.Add(new MeatInfo
+            meatInScene.Add(guid, new MeatInfo
             {
                 Scene = scene,
                 ObjectGuid = guid,
@@ -61,18 +58,14 @@ namespace StolenMeatMod
             if (string.IsNullOrEmpty(guid))
                 return;
 
-            List<MeatInfo> list;
-            if (!MeatByScene.TryGetValue(scene, out list))
+            Dictionary<string, MeatInfo> meatInScene;
+            if (!MeatByScene.TryGetValue(scene, out meatInScene))
                 return;
 
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                if (list[i].ObjectGuid == guid)
-                {
-                    list.RemoveAt(i);
-                    return;
-                }
-            }
+            if (meatInScene == null) 
+                return;
+
+            meatInScene.Remove(guid);
         }
 
         internal static void OnSaveGame()
@@ -101,7 +94,7 @@ namespace StolenMeatMod
             ModSaveData data =
                 JsonConvert.DeserializeObject<ModSaveData>(json);
 
-            MeatByScene = data.MeatByScene ?? new Dictionary<string, List<MeatInfo>>();
+            MeatByScene = data.MeatByScene ?? new Dictionary<string, Dictionary<string, MeatInfo>>();
             LastGlobalMinutes = data.LastGlobalMinutes;
 
             Main.DebugLog("[SaveData] Loaded");

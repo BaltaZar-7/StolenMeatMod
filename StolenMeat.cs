@@ -125,20 +125,20 @@ namespace StolenMeatMod
             SaveDataManager.LastGlobalMinutes = nowMinutes;
             Main.DebugLog($"[Timer] Global tick +{delta:F1} min");
 
-            foreach (KeyValuePair<string, List<MeatInfo>> kvp in SaveDataManager.MeatByScene)
+            foreach (KeyValuePair<string, Dictionary<string, MeatInfo>> kvp in SaveDataManager.MeatByScene)
             {
                 string scene = kvp.Key;
-                List<MeatInfo> list = kvp.Value;
-                if (list == null || list.Count == 0)
+                Dictionary<string, MeatInfo> meatInScene = kvp.Value;
+                if (meatInScene == null || meatInScene.Count == 0)
                     continue;
 
                 bool isActiveScene = scene == GameManager.m_ActiveScene;
 
                 if (!isActiveScene)
                 {
-                    for (int i = 0; i < list.Count; i++)
-                    {
-                        list[i].ElapsedMinutes += delta;
+                    foreach (MeatInfo meat in meatInScene.Values)
+                    { 
+                        meat.ElapsedMinutes += delta;
                     }
                     continue;
                 }
@@ -146,10 +146,8 @@ namespace StolenMeatMod
                 //GearItem[] allItems = UnityEngine.Object.FindObjectsOfType<GearItem>();
                 FireManager fireMgr = GameManager.GetFireManagerComponent();
 
-                for (int i = list.Count - 1; i >= 0; i--)
+                foreach (MeatInfo meat in meatInScene.Values)
                 {
-                    MeatInfo meat = list[i];
-
                     GameObject meatGameObject = PdidTable.GetGameObject(meat.ObjectGuid);
                     if (meatGameObject == null)
                         continue;
@@ -178,7 +176,7 @@ namespace StolenMeatMod
                         if (roll < Main.DespawnRollChance)
                         {
                             UnityEngine.Object.Destroy(gi.gameObject);
-                            list.RemoveAt(i);
+                            meatInScene.Remove(meat.ObjectGuid);
 
                             Main.DebugLog(
                                 $"[Runtime] Expired food destroyed GUID={meat.ObjectGuid} roll={roll:F2}"
@@ -336,42 +334,39 @@ namespace StolenMeatMod
 
             if (!SaveDataManager.MeatByScene.TryGetValue(
                     GameManager.m_ActiveScene,
-                    out List<MeatInfo> list))
+                    out Dictionary<string, MeatInfo> meatInScene))
                 return;
 
             string guid = Main.GetObjectGuid(__instance);
             if (string.IsNullOrEmpty(guid))
                 return;
 
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                MeatInfo meat = list[i];
-                if (meat.ObjectGuid != guid)
-                    continue;
-
-                if (meat.ElapsedMinutes < Main.DespawnLimitMinutes)
-                    return;
-
-                float roll = UnityEngine.Random.value;
-                if (roll < Main.DespawnRollChance)
-                {
-                    UnityEngine.Object.Destroy(__instance.gameObject);
-                    list.RemoveAt(i);
-
-                    Main.DebugLog(
-                        $"[SceneLoad] Expired food destroyed roll={roll:F2}"
-                    );
-                }
-                else
-                {
-                    meat.ElapsedMinutes = 0f;
-                    Main.DebugLog(
-                        $"[SceneLoad] Despawn avoided roll={roll:F2}, timer reset"
-                    );
-                }
-
+            if (!meatInScene.TryGetValue(guid, out MeatInfo meat))
                 return;
+
+            if (meat.ElapsedMinutes < Main.DespawnLimitMinutes)
+                return;
+
+            float roll = UnityEngine.Random.value;
+            if (roll < Main.DespawnRollChance)
+            {
+                UnityEngine.Object.Destroy(__instance.gameObject);
+                meatInScene.Remove(guid);
+
+                Main.DebugLog(
+                    $"[SceneLoad] Expired food destroyed roll={roll:F2}"
+                );
             }
+            else
+            {
+                meat.ElapsedMinutes = 0f;
+                Main.DebugLog(
+                    $"[SceneLoad] Despawn avoided roll={roll:F2}, timer reset"
+                );
+            }
+
+            return;
+            
         }
     }
     [HarmonyPatch(typeof(PlayerManager), "PlaceMeshInWorld")]
@@ -403,7 +398,7 @@ namespace StolenMeatMod
             }
 
             // ===== OUTDOOR - register
-            if (!SaveDataManager.MeatByScene.TryGetValue(scene, out List<MeatInfo> list))
+            if (!SaveDataManager.MeatByScene.TryGetValue(scene, out Dictionary<string, MeatInfo> meatInScene))
             {
                 SaveDataManager.RegisterMeat(scene, gi);
                 Main.DebugLog("[Place] Food registered (new list)");
@@ -415,13 +410,10 @@ namespace StolenMeatMod
                 return;
             }
 
-            foreach (MeatInfo m in list)
+            if (meatInScene.ContainsKey(guid))
             {
-                if (m.ObjectGuid == guid)
-                {
-                    Main.DebugLog("[Place] Already tracked");
-                    return;
-                }
+                Main.DebugLog("[Place] Already tracked");
+                return;
             }
 
             SaveDataManager.RegisterMeat(scene, gi);
