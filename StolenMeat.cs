@@ -67,16 +67,41 @@ namespace StolenMeatMod
 
             return guidComp.Get();
         }
-        internal static bool IsItemInIndoorEnvironment()
+        internal static bool IsItemInIndoorEnvironment(GearItem gi)
         {
-            Weather weather = GameManager.GetWeatherComponent();
-            if (weather == null)
+            if (gi == null)
                 return false;
 
-            if (weather.IsIndoorScene())
+            Weather weather = GameManager.GetWeatherComponent();
+            if (weather != null && weather.IsIndoorScene())
                 return true;
 
-            return weather.IsIndoorEnvironment();
+            Collider meatCollider = gi.GetComponent<Collider>();
+            if (meatCollider == null)
+                return false;
+
+            Collider[] nearby = Physics.OverlapSphere(
+                meatCollider.bounds.center,
+                meatCollider.bounds.extents.magnitude
+            );
+
+            for (int i = 0; i < nearby.Length; i++)
+            {
+                Collider other = nearby[i];
+                if (other == meatCollider)
+                    continue;
+
+                IndoorSpaceTrigger trigger = other.GetComponent<IndoorSpaceTrigger>();
+                if (trigger == null)
+                    continue;
+
+                if (trigger.m_DontCountAsInterior)
+                    continue;
+
+                return true;
+            }
+
+            return false;
         }
         internal static bool IsNearBurningFire(Vector3 pos)
         {
@@ -159,13 +184,7 @@ namespace StolenMeatMod
 
                     if (fireMgr != null && fireMgr.PointInRadiusOfBurningFire(gi.transform.position))
                     {
-                        Fire closestFire = fireMgr.GetClosestFire(gi.transform.position);
-                        float remainingMinutes =
-                            closestFire != null
-                                ? closestFire.GetRemainingLifeTimeHours() * 60f
-                                : 0f;
-
-                        meat.ElapsedMinutes = 0f - remainingMinutes;
+                        Main.ApplyFirePauseIfNeeded(meat, gi);
                         continue;
                     }
 
@@ -300,6 +319,30 @@ namespace StolenMeatMod
 
             return AnimalQuarterNames.Contains(gi.name);
         }
+        internal static void ApplyFirePauseIfNeeded(MeatInfo meat, GearItem gi)
+        {
+            if (meat == null || gi == null)
+                return;
+
+            FireManager fireMgr = GameManager.GetFireManagerComponent();
+            if (fireMgr == null)
+                return;
+
+            if (!fireMgr.PointInRadiusOfBurningFire(gi.transform.position))
+                return;
+
+            Fire closestFire = fireMgr.GetClosestFire(gi.transform.position);
+            float remainingMinutes =
+                closestFire != null
+                    ? closestFire.GetRemainingLifeTimeHours() * 60f
+                    : 0f;
+
+            meat.ElapsedMinutes = 0f - remainingMinutes;
+
+            Main.DebugLog(
+                $"[FirePause] Applied fire pause GUID={meat.ObjectGuid} remaining={remainingMinutes:F1} min"
+            );
+        }
     }
 
 
@@ -310,12 +353,13 @@ namespace StolenMeatMod
     {
         private static void Postfix(GearItem __instance)
         {
+            if (!GameManager.IsOutDoorsScene(GameManager.m_ActiveScene))
+                return;
+
             if (!Main.IsValidFoodTarget(__instance))
                 return;
 
-            if (!GameManager.IsOutDoorsScene(GameManager.m_ActiveScene))
-                return;
-            if (Main.IsItemInIndoorEnvironment())
+            if (Main.IsItemInIndoorEnvironment(__instance))
             {
                 Main.DebugLog("[Drop] Ignored (item indoors)");
                 return;
@@ -352,10 +396,12 @@ namespace StolenMeatMod
 
             Main.DebugLog("[Drop] Food registered with GUID " + guid);
 
-            bool nearFire = Main.IsNearBurningFire(gi.transform.position);
-            if (nearFire)
+            if (SaveDataManager.MeatByScene.TryGetValue(
+                    GameManager.m_ActiveScene,
+                    out Dictionary<string, MeatInfo> meatInScene)
+                && meatInScene.TryGetValue(guid, out MeatInfo meat))
             {
-                Main.DebugLog("[Register] Near fire → timer effectively paused");
+                Main.ApplyFirePauseIfNeeded(meat, gi);
             }
         }
     }
@@ -437,7 +483,7 @@ namespace StolenMeatMod
             if (!Main.IsValidFoodTarget(gi))
                 return;
 
-            bool isIndoor = Main.IsItemInIndoorEnvironment();
+            bool isIndoor = Main.IsItemInIndoorEnvironment(gi);
 
             string scene = GameManager.m_ActiveScene;
             string guid = Main.GetObjectGuid(gi);
@@ -456,7 +502,19 @@ namespace StolenMeatMod
             if (!SaveDataManager.MeatByScene.TryGetValue(scene, out Dictionary<string, MeatInfo> meatInScene))
             {
                 SaveDataManager.RegisterMeat(scene, gi);
-                Main.DebugLog("[Place] Food registered (new list)");
+
+                if (SaveDataManager.MeatByScene.TryGetValue(
+                    scene,
+                    out Dictionary<string, MeatInfo> sceneMeat))
+                {
+                    if (sceneMeat.TryGetValue(guid, out MeatInfo meat))
+                    {
+                        Main.ApplyFirePauseIfNeeded(meat, gi);
+                    }
+                }
+
+                Main.DebugLog("[Place] Food registered");
+
                 bool nearFire = Main.IsNearBurningFire(gi.transform.position);
                 if (nearFire)
                 {
