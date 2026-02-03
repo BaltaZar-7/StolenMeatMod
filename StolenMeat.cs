@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using static Il2Cpp.PlayerVoice;
 
 namespace StolenMeatMod
 {
@@ -219,12 +220,22 @@ namespace StolenMeatMod
 
             foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
             {
-                if (Vector3.Distance(position, info.Position) <= StolenMeatSettings.Instance.SpawnedPredatorRadius)
+                float dist = Vector3.Distance(position, info.Position);
+                Main.DebugLog($"Dist from dropped meat at {position} to existing predator region at {info.Position}: {dist}");
+                if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius)
                 {
                     Main.DebugLog($"Dropped meat too close to existing predator spawn at {info.Position}! Skipping creating new predator spawn.");
                     return;
                 }
             }
+
+            thisSceneSpawns.Add("new GUID generated with new spawn region here", new SpawnRegionInfo
+            {
+                Scene = GameManager.m_ActiveScene,
+                Position = position,
+                ObjectGuid = "new GUID generated with new spawn region here",
+                DespawnTime = 0f // figure something out for this
+            });
 
             Main.DebugLog($"Triggering predator spawn! To be implemented...");
 
