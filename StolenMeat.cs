@@ -177,6 +177,7 @@ namespace StolenMeatMod
                         {
                             UnityEngine.Object.Destroy(gi.gameObject);
                             meatInScene.Remove(meat.ObjectGuid);
+                            MaybeSpawnPredator(gi.transform.position);
 
                             Main.DebugLog(
                                 $"[Runtime] Expired food destroyed GUID={meat.ObjectGuid} roll={roll:F2}"
@@ -201,6 +202,26 @@ namespace StolenMeatMod
                 return 0f;
 
             return tod.GetHoursPlayedNotPaused() * 60f;
+        }
+
+        internal void MaybeSpawnPredator(Vector3 position)
+        {
+            if (!SaveDataManager.SpawnsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
+                return;
+
+            foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
+            {
+                if (Vector3.Distance(position, info.Position) <= StolenMeatSettings.Instance.SpawnedPredatorRadius)
+                {
+                    Main.DebugLog($"Dropped meat too close to existing predator spawn at {info.Position}! Skipping creating new predator spawn.");
+                    return;
+                }
+            }
+
+            Main.DebugLog($"Triggering predator spawn! To be implemented...");
+
+            // TODO: Create new spawn region with a method that is used both here and on scene load, then spawn the predator
+            // TODO: Capture spawn region for periodic checking of "is this spawn region still valid? is the spawn still alive?" and if not, nuke both the spawn region and the entry in the dictionary
         }
 
         internal static void DebugLog(string msg)
