@@ -206,10 +206,16 @@ namespace StolenMeatMod
         internal void MaybeSpawnPredator(Vector3 position)
         {
             if (!SaveDataManager.SpawnsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
-                return;
+            {
+                thisSceneSpawns = new Dictionary<string, SpawnRegionInfo>();
+                SaveDataManager.SpawnsByScene.Add(GameManager.m_ActiveScene, thisSceneSpawns);
+            }
 
             if (thisSceneSpawns.Values.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns)
+            {
+                Main.DebugLog($"Too many existing predator spawns! Skipping creating new predator spawn.");
                 return;
+            }
 
             foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
             {
