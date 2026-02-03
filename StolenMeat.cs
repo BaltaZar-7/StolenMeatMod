@@ -226,38 +226,45 @@ namespace StolenMeatMod
 
         internal void MaybeSpawnPredator(Vector3 position)
         {
-            if (!SaveDataManager.SpawnsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
+            try
             {
-                thisSceneSpawns = new Dictionary<string, SpawnRegionInfo>();
-                SaveDataManager.SpawnsByScene.Add(GameManager.m_ActiveScene, thisSceneSpawns);
-            }
-
-            if (thisSceneSpawns.Values.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns)
-            {
-                Main.DebugLog($"Too many existing predator spawns! Skipping creating new predator spawn.");
-                return;
-            }
-
-            foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
-            {
-                float dist = Vector3.Distance(position, info.Position);
-                Main.DebugLog($"Dist from dropped meat at {position} to existing predator region at {info.Position}: {dist}");
-                if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius)
+                if (!SaveDataManager.SpawnsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
                 {
-                    Main.DebugLog($"Dropped meat too close to existing predator spawn at {info.Position}! Skipping creating new predator spawn.");
+                    thisSceneSpawns = new Dictionary<string, SpawnRegionInfo>();
+                    SaveDataManager.SpawnsByScene.Add(GameManager.m_ActiveScene, thisSceneSpawns);
+                }
+
+                if (thisSceneSpawns.Values.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns)
+                {
+                    Main.DebugLog($"Too many existing predator spawns! Skipping creating new predator spawn.");
                     return;
                 }
+
+                foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
+                {
+                    float dist = Vector3.Distance(position, info.Position);
+                    Main.DebugLog($"Dist from dropped meat at {position} to existing predator region at {info.Position}: {dist}");
+                    if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius)
+                    {
+                        Main.DebugLog($"Dropped meat too close to existing predator spawn at {info.Position}! Skipping creating new predator spawn.");
+                        return;
+                    }
+                }
+
+                string spawnRegionGuid = Guid.NewGuid().ToString();
+                SpawnRegion predatorSpawnRegion = GenerateSpawnRegion(position, spawnRegionGuid);
+                thisSceneSpawns.Add(spawnRegionGuid, new SpawnRegionInfo
+                {
+                    Scene = GameManager.m_ActiveScene,
+                    Position = position,
+                    ObjectGuid = spawnRegionGuid,
+                    DespawnTime = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
+                });
+            } catch (Exception e)
+            {
+                MelonLogger.Error(e);
             }
 
-            SpawnRegion predatorSpawnRegion = GenerateSpawnRegion();
-            string spawnRegionGuid = Guid.NewGuid().ToString();
-            thisSceneSpawns.Add(spawnRegionGuid, new SpawnRegionInfo
-            {
-                Scene = GameManager.m_ActiveScene,
-                Position = position,
-                ObjectGuid = spawnRegionGuid,
-                DespawnTime = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
-            });
 
             Main.DebugLog($"Triggering predator spawn! To be implemented...");
 
@@ -266,10 +273,21 @@ namespace StolenMeatMod
         }
 
 
-        internal SpawnRegion GenerateSpawnRegion()
+        internal SpawnRegion GenerateSpawnRegion(Vector3 position, string guid)
         {
             GameObject go = new GameObject("PredatorSpawnRegion");
+            go.transform.position = position;
+            ObjectGuid objectGuid = go.AddComponent<ObjectGuid>();
+            objectGuid.m_Guid = guid;
             SpawnRegion spawnRegion = go.AddComponent<SpawnRegion>();
+            spawnRegion.m_DifficultySettings = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<SpawnRegion.DifficultyProperties>(5);
+            for (int i = 0, iMax = 5; i < iMax; i++)
+            {
+                spawnRegion.m_DifficultySettings[i] = new SpawnRegion.DifficultyProperties();
+                spawnRegion.m_DifficultySettings[i].m_MaxRespawnsPerDay = 0;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = 1;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = 1;
+            }
             spawnRegion.m_SpawnablePrefabName = "WILDLIFE_Wolf";
             spawnRegion.m_AiSubTypeSpawned = AiSubType.Wolf;
             spawnRegion.m_AiTypeSpawned = AiType.Predator;
