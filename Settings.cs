@@ -20,11 +20,6 @@ namespace StolenMeatMod
         [Slider(10, 100)]
         public int DespawnChancePercent = 40;
 
-        [Section("Decoy Behavior")]
-        [Name("Dropped Meat emits smell")]
-        [Description("Dropped meat will emit smell and attract wildlife like a vanilla decoy. Default: Yes")]
-        public bool DroppedMeatIsDecoy = true;
-
         [Section("Meat Types")]
         [Name("Include Cured Meat")]
         [Description("Should Cured Meat get stolen? Default: Yes")]
