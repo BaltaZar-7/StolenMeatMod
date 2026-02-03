@@ -153,6 +153,9 @@ namespace StolenMeatMod
             SaveDataManager.LastGlobalMinutes = nowMinutes;
             Main.DebugLog($"[Timer] Global tick +{delta:F1} min");
 
+            List<MeatInfo> meatsToDespawn = new List<MeatInfo>();
+            List<SpawnRegionInfo> spawnRegionsToDespawn = new List<SpawnRegionInfo>();
+
             foreach (KeyValuePair<string, Dictionary<string, MeatInfo>> kvp in SaveDataManager.MeatByScene)
             {
                 string scene = kvp.Key;
@@ -196,8 +199,8 @@ namespace StolenMeatMod
                         float roll = UnityEngine.Random.value;
                         if (roll < Main.DespawnRollChance)
                         {
+                            meatsToDespawn.Add(meat);
                             UnityEngine.Object.Destroy(gi.gameObject);
-                            meatInScene.Remove(meat.ObjectGuid);
                             MaybeSpawnPredator(gi.transform.position);
 
                             Main.DebugLog(
@@ -213,6 +216,54 @@ namespace StolenMeatMod
                         }
                     }
                 }
+            }
+
+            foreach (KeyValuePair<string, Dictionary<string, SpawnRegionInfo>> kvp in SaveDataManager.SpawnsByScene)
+            {
+                string scene = kvp.Key;
+                Dictionary<string, SpawnRegionInfo> spawnInScene = kvp.Value;
+                if (spawnInScene == null || spawnInScene.Count == 0)
+                    continue;
+
+                bool isActiveScene = scene == GameManager.m_ActiveScene;
+
+                if (!isActiveScene)
+                {
+                    foreach (SpawnRegionInfo spawnRegionInfo in spawnInScene.Values)
+                    {
+                        spawnRegionInfo.ElapsedMinutes += delta;
+                    }
+                    continue;
+                }
+
+                foreach (SpawnRegionInfo spawnRegionInfo in spawnInScene.Values)
+                {
+                    GameObject spawnGameObject = PdidTable.GetGameObject(spawnRegionInfo.ObjectGuid);
+                    if (spawnGameObject == null)
+                        continue;
+
+                    SpawnRegion spawnRegion = spawnGameObject.GetComponent<SpawnRegion>();
+                    if (spawnRegion == null)
+                        continue;
+
+                    spawnRegionInfo.ElapsedMinutes += delta;
+
+                    if (spawnRegion.GetNumActiveSpawns() == 0 || spawnRegionInfo.ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f) //dead spawn
+                    {
+                        GameManager.GetSpawnRegionManager().Remove(spawnRegion); //this effectively neuters the region, as regions are run by the manager mechanically.
+                        spawnRegionsToDespawn.Add(spawnRegionInfo);
+                    }
+                }
+            }
+
+            foreach (MeatInfo meat in meatsToDespawn)
+            {
+                SaveDataManager.RemoveMeat(meat.Scene, meat.ObjectGuid);
+            }
+
+            foreach (SpawnRegionInfo spawnRegionInfo in spawnRegionsToDespawn)
+            {
+                SaveDataManager.RemoveSpawn(spawnRegionInfo.Scene, spawnRegionInfo.ObjectGuid);
             }
         }
         // Helpers
@@ -259,7 +310,7 @@ namespace StolenMeatMod
                     Scene = GameManager.m_ActiveScene,
                     Position = position,
                     ObjectGuid = spawnRegionGuid,
-                    DespawnTime = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
+                    ElapsedMinutes = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
                 });
             }
             catch (Exception e)

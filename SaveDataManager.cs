@@ -71,6 +71,23 @@ namespace StolenMeatMod
             meatInScene.Remove(guid);
         }
 
+
+        internal static void RemoveSpawn(string scene, string guid)
+        {
+            if (string.IsNullOrEmpty(guid))
+                return;
+
+            Dictionary<string, SpawnRegionInfo> spawnsInScene;
+            if (!SpawnsByScene.TryGetValue(scene, out spawnsInScene))
+                return;
+
+            if (spawnsInScene == null)
+                return;
+
+            spawnsInScene.Remove(guid);
+        }
+
+
         internal static void OnSaveGame()
         {
             string json = JsonConvert.SerializeObject(new ModSaveData
