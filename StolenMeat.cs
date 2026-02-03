@@ -9,6 +9,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using static Il2Cpp.PlayerVoice;
 
 namespace StolenMeatMod
@@ -229,18 +230,32 @@ namespace StolenMeatMod
                 }
             }
 
-            thisSceneSpawns.Add("new GUID generated with new spawn region here", new SpawnRegionInfo
+            SpawnRegion predatorSpawnRegion = GenerateSpawnRegion();
+            string spawnRegionGuid = Guid.NewGuid().ToString();
+            thisSceneSpawns.Add(spawnRegionGuid, new SpawnRegionInfo
             {
                 Scene = GameManager.m_ActiveScene,
                 Position = position,
-                ObjectGuid = "new GUID generated with new spawn region here",
-                DespawnTime = 0f // figure something out for this
+                ObjectGuid = spawnRegionGuid,
+                DespawnTime = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
             });
 
             Main.DebugLog($"Triggering predator spawn! To be implemented...");
 
             // TODO: Create new spawn region with a method that is used both here and on scene load, then spawn the predator
             // TODO: Capture spawn region for periodic checking of "is this spawn region still valid? is the spawn still alive?" and if not, nuke both the spawn region and the entry in the dictionary
+        }
+
+
+        internal SpawnRegion GenerateSpawnRegion()
+        {
+            GameObject go = new GameObject("PredatorSpawnRegion");
+            SpawnRegion spawnRegion = go.AddComponent<SpawnRegion>();
+            spawnRegion.m_SpawnablePrefabName = "WILDLIFE_Wolf";
+            spawnRegion.m_AiSubTypeSpawned = AiSubType.Wolf;
+            spawnRegion.m_AiTypeSpawned = AiType.Predator;
+            spawnRegion.m_SpawnablePrefab = Addressables.LoadAssetAsync<GameObject>("WILDLIFE_Wolf").WaitForCompletion();
+            return spawnRegion;
         }
 
         internal static void DebugLog(string msg)

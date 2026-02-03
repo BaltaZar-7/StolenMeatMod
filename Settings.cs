@@ -48,6 +48,12 @@ namespace StolenMeatMod
         [Description("Maximum allowed additional simultaneous predators per scene")]
         public int MaxSimultaneousSpawns = 10;
 
+        [Name("Predator Spawn Duration")]
+        [Slider(8, 72)]
+        [Description("Time in hours before predator spawns disappear. Default: 24")]
+        public int PredatorSpawnDuration = 24;
+
+
         protected override void OnConfirm()
         {
             base.OnConfirm();
