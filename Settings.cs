@@ -38,6 +38,16 @@ namespace StolenMeatMod
         [Description("Should Animal Quarters get stolen? Default: No")]
         public bool IncludeAnimalQuarters = false;
 
+        [Name("Spawned Predator Radius (meters)")]
+        [Slider(5, 50)]
+        [Description("Minimum distance required between two meat-spawned predators. Meat stolen within this radius of an existing predator spawn will not trigger a new predator spawn.")]
+        public int SpawnedPredatorRadius = 30;
+
+        [Name("Max Predators Spawned per Scene")]
+        [Slider(5, 25)]
+        [Description("Maximum allowed additional simultaneous predators per scene")]
+        public int MaxSimultaneousSpawns = 10;
+
         protected override void OnConfirm()
         {
             base.OnConfirm();
