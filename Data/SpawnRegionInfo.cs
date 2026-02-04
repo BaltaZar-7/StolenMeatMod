@@ -1,4 +1,5 @@
 ﻿#nullable disable
+using Il2Cpp;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -13,6 +14,7 @@ namespace StolenMeatMod
         public float PositionZ;
         public string ObjectGuid;
         public float ElapsedMinutes;
+        public int PredatorsKilled;
 
         [JsonIgnore]
         public Vector3 Position
