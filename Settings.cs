@@ -33,6 +33,15 @@ namespace StolenMeatMod
         [Description("Should Animal Quarters get stolen? Default: No")]
         public bool IncludeAnimalQuarters = false;
 
+        [Section("Predator Spawn Settings")]
+        [Name("Spawn Predators on Stolen Meat")]
+        [Description("Should predators spawn upon meat being stolen? Default: Yes")]
+        public bool ShouldSpawnPredators = true;
+
+        [Name("Refresh Predator Spawns on Stolen Meat")]
+        [Description("Should predators refresh upon meat being stolen within their radius? Default: Yes")]
+        public bool ShouldRefreshPredators = true;
+
         [Name("Spawned Predator Radius (meters)")]
         [Slider(5, 50)]
         [Description("Minimum distance required between two meat-spawned predators. Meat stolen within this radius of an existing predator spawn will not trigger a new predator spawn.")]
@@ -47,6 +56,11 @@ namespace StolenMeatMod
         [Slider(8, 72)]
         [Description("Time in hours before predator spawns disappear. Default: 24")]
         public int PredatorSpawnDuration = 24;
+
+        [Name("Predator Spawn Quantity")]
+        [Slider(1, 5)]
+        [Description("Predators spawned. Default: 1")]
+        public int PredatorQuantity = 1;
 
 
         protected override void OnConfirm()

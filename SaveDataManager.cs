@@ -6,6 +6,8 @@ using HarmonyLib;
 using Il2Cpp;
 using Il2CppTLD.Gameplay;
 using System;
+using Il2CppTLD.PDID;
+using UnityEngine;
 
 namespace StolenMeatMod
 {
@@ -19,7 +21,7 @@ namespace StolenMeatMod
         internal static Dictionary<string, Dictionary<string, MeatInfo>> MeatByScene
             = new Dictionary<string, Dictionary<string, MeatInfo>>();
 
-        internal static Dictionary<string, Dictionary<string, SpawnRegionInfo>> SpawnsByScene
+        internal static Dictionary<string, Dictionary<string, SpawnRegionInfo>> SpawnRegionsByScene
             = new Dictionary<string, Dictionary<string, SpawnRegionInfo>>();
 
         internal static float LastGlobalMinutes;
@@ -78,11 +80,13 @@ namespace StolenMeatMod
                 return;
 
             Dictionary<string, SpawnRegionInfo> spawnsInScene;
-            if (!SpawnsByScene.TryGetValue(scene, out spawnsInScene))
+            if (!SpawnRegionsByScene.TryGetValue(scene, out spawnsInScene))
                 return;
 
             if (spawnsInScene == null)
                 return;
+
+            Main.DebugLog("[RemoveSpawn] Removed Spawn " + guid);
 
             spawnsInScene.Remove(guid);
         }
@@ -93,7 +97,7 @@ namespace StolenMeatMod
             string json = JsonConvert.SerializeObject(new ModSaveData
             {
                 MeatByScene = MeatByScene,
-                SpawnsByScene = SpawnsByScene,
+                SpawnRegionsByScene = SpawnRegionsByScene,
                 LastGlobalMinutes = LastGlobalMinutes
             });
 
@@ -107,7 +111,7 @@ namespace StolenMeatMod
             if (string.IsNullOrEmpty(json))
             {
                 MeatByScene.Clear();
-                SpawnsByScene.Clear();
+                SpawnRegionsByScene.Clear();
                 LastGlobalMinutes = 0f;
                 Main.DebugLog("[SaveData] No data");
                 return;
@@ -117,7 +121,7 @@ namespace StolenMeatMod
                 JsonConvert.DeserializeObject<ModSaveData>(json);
 
             MeatByScene = data.MeatByScene ?? new Dictionary<string, Dictionary<string, MeatInfo>>();
-            SpawnsByScene = data.SpawnsByScene ?? new Dictionary<string, Dictionary<string, SpawnRegionInfo>>();
+            SpawnRegionsByScene = data.SpawnRegionsByScene ?? new Dictionary<string, Dictionary<string, SpawnRegionInfo>>();
             LastGlobalMinutes = data.LastGlobalMinutes;
 
             Main.DebugLog("[SaveData] Loaded");
