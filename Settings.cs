@@ -43,13 +43,13 @@ namespace StolenMeatMod
         public bool ShouldRefreshPredators = true;
 
         [Name("Spawned Predator Radius (meters)")]
-        [Slider(5, 50)]
-        [Description("Minimum distance required between two meat-spawned predators. Meat stolen within this radius of an existing predator spawn will not trigger a new predator spawn.")]
-        public int SpawnedPredatorRadius = 30;
+        [Slider(50, 500)]
+        [Description("Minimum distance required between two meat-spawned predators. Meat stolen within this radius of an existing predator spawn will not trigger a new predator spawn. Default: 100")]
+        public int SpawnedPredatorRadius = 100;
 
-        [Name("Max Predators Spawned per Scene")]
+        [Name("Max Predator Packs Spawned per Scene")]
         [Slider(5, 25)]
-        [Description("Maximum allowed additional simultaneous predators per scene")]
+        [Description("Maximum allowed additional simultaneous predator packs per scene")]
         public int MaxSimultaneousSpawns = 10;
 
         [Name("Predator Spawn Duration")]
