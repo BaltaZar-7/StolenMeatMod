@@ -100,7 +100,13 @@
         <Reference Include="UnityEngine.InputLegacyModule" />
         <Reference Include="UnityEngine.InputModule" />
 		<Reference Include="UnityEngine.PhysicsModule" />
+        <Reference Include="Unity.ResourceManager" />
+        <Reference Include="Unity.Addressables" />
         <Reference Include="UnityEngine.Il2CppAssetBundleManager" />
         <Reference Include="UnityEngine.Il2CppImageConversionManager" />
     </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="COPY &quot;$(TargetPath)&quot; &quot;$(ModsPath)&quot;" />
+  </Target>
 </Project>

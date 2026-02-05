@@ -5,17 +5,21 @@ using Il2CppTLD.Gameplay;
 using Il2CppTLD.PDID;
 using MelonLoader;
 using MelonLoader.Utils;
+using Microsoft.VisualBasic;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using static Il2Cpp.CarcassSite;
 using static Il2Cpp.PlayerVoice;
+using static Il2CppTMPro.SpriteAssetUtilities.TexturePacker_JsonArray;
 
 namespace StolenMeatMod
 {
     public class Main : MelonMod
     {
-        internal const float UPDATE_INTERVAL_MINUTES = 10f;
+        internal const float UPDATE_INTERVAL_MINUTES = 1f;
 
         internal static bool DebugEnabled;
 
@@ -66,28 +70,30 @@ namespace StolenMeatMod
 
             return guidComp.Get();
         }
-        internal static bool IsItemInIndoorEnvironment(GearItem gi)
+
+
+        internal static bool IsItemInIndoorEnvironment<T>(T tItem) where T : MonoBehaviour
         {
-            if (gi == null)
+            if (tItem == null)
                 return false;
 
             Weather weather = GameManager.GetWeatherComponent();
             if (weather != null && weather.IsIndoorScene())
                 return true;
 
-            Collider meatCollider = gi.GetComponent<Collider>();
-            if (meatCollider == null)
+            Collider itemCollider = tItem.GetComponent<Collider>();
+            if (itemCollider == null)
                 return false;
 
             Collider[] nearby = Physics.OverlapSphere(
-                meatCollider.bounds.center,
-                meatCollider.bounds.extents.magnitude
+                itemCollider.bounds.center,
+                itemCollider.bounds.extents.magnitude
             );
 
             for (int i = 0; i < nearby.Length; i++)
             {
                 Collider other = nearby[i];
-                if (other == meatCollider)
+                if (other == itemCollider)
                     continue;
 
                 IndoorSpaceTrigger trigger = other.GetComponent<IndoorSpaceTrigger>();
@@ -102,6 +108,8 @@ namespace StolenMeatMod
 
             return false;
         }
+
+
         internal static bool IsNearBurningFire(Vector3 pos)
         {
             FireManager fm = GameManager.GetFireManagerComponent();
@@ -151,6 +159,9 @@ namespace StolenMeatMod
             SaveDataManager.LastGlobalMinutes = nowMinutes;
             Main.DebugLog($"[Timer] Global tick +{delta:F1} min");
 
+            List<MeatInfo> meatsToDespawn = new List<MeatInfo>();
+            List<SpawnRegionInfo> spawnRegionsToDespawn = new List<SpawnRegionInfo>();
+
             foreach (KeyValuePair<string, Dictionary<string, MeatInfo>> kvp in SaveDataManager.MeatByScene)
             {
                 string scene = kvp.Key;
@@ -163,7 +174,7 @@ namespace StolenMeatMod
                 if (!isActiveScene)
                 {
                     foreach (MeatInfo meat in meatInScene.Values)
-                    { 
+                    {
                         meat.ElapsedMinutes += delta;
                     }
                     continue;
@@ -194,8 +205,8 @@ namespace StolenMeatMod
                         float roll = UnityEngine.Random.value;
                         if (roll < Main.DespawnRollChance)
                         {
+                            meatsToDespawn.Add(meat);
                             UnityEngine.Object.Destroy(gi.gameObject);
-                            meatInScene.Remove(meat.ObjectGuid);
                             MaybeSpawnPredator(gi.transform.position);
 
                             Main.DebugLog(
@@ -212,6 +223,75 @@ namespace StolenMeatMod
                     }
                 }
             }
+
+            foreach (KeyValuePair<string, Dictionary<string, SpawnRegionInfo>> kvp in SaveDataManager.SpawnRegionsByScene)
+            {
+                string scene = kvp.Key;
+                Dictionary<string, SpawnRegionInfo> spawnInScene = kvp.Value;
+                if (spawnInScene == null || spawnInScene.Count == 0)
+                    continue;
+
+                bool isActiveScene = scene == GameManager.m_ActiveScene;
+
+                if (!isActiveScene)
+                {
+                    foreach (SpawnRegionInfo spawnRegionInfo in spawnInScene.Values)
+                    {
+                        spawnRegionInfo.ElapsedMinutes += delta; 
+                        if (spawnRegionInfo.ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f)
+                        {
+                            spawnRegionsToDespawn.Add(spawnRegionInfo);
+                        }
+                    }
+                    continue;
+                }
+
+                foreach (SpawnRegionInfo spawnRegionInfo in spawnInScene.Values)
+                {
+                    spawnRegionInfo.ElapsedMinutes += delta;
+
+                    GameObject spawnGameObject = PdidTable.GetGameObject(spawnRegionInfo.ObjectGuid);
+                    if (spawnGameObject == null)
+                        continue;
+
+                    SpawnRegion spawnRegion = spawnGameObject.GetComponent<SpawnRegion>();
+                    if (spawnRegion == null)
+                        continue;
+
+                    spawnRegionInfo.PredatorsKilled = StolenMeatSettings.Instance.PredatorQuantity - spawnRegion.GetMaxSimultaneousSpawnsDay() + spawnRegion.m_NumRespawnsPending;
+                    DebugLog($"Predators Killed: {spawnRegionInfo.PredatorsKilled} = {StolenMeatSettings.Instance.PredatorQuantity} - {spawnRegion.GetMaxSimultaneousSpawnsDay()} + {spawnRegion.m_NumRespawnsPending}");
+
+                    if (spawnRegionInfo.PredatorsKilled >= StolenMeatSettings.Instance.PredatorQuantity
+                        || spawnRegionInfo.ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f)
+                    {
+                        for (int i = 0, iMax = spawnRegion.m_Spawns.Count; i < iMax; i++)
+                        {
+                            GameObject predatorObject = spawnRegion.m_Spawns[i].gameObject;
+                            BaseAi baseAi = predatorObject.GetComponent<BaseAi>();
+                            if (baseAi != null)
+                            {
+                                baseAi.Despawn();
+                                BaseAiManager.Remove(baseAi);
+                            }
+                            GameObject.Destroy(predatorObject);
+                        }
+                        spawnRegion.m_Spawns.Clear();
+                        
+                        GameManager.GetSpawnRegionManager().Remove(spawnRegion); //this effectively neuters the region, as regions are run by the manager mechanically.
+                        spawnRegionsToDespawn.Add(spawnRegionInfo);
+                    }
+                }
+            }
+
+            foreach (MeatInfo meat in meatsToDespawn)
+            {
+                SaveDataManager.RemoveMeat(meat.Scene, meat.ObjectGuid);
+            }
+
+            foreach (SpawnRegionInfo spawnRegionInfo in spawnRegionsToDespawn)
+            {
+                SaveDataManager.RemoveSpawn(spawnRegionInfo.Scene, spawnRegionInfo.ObjectGuid);
+            }
         }
         // Helpers
         internal static float GetCurrentIngameMinutes()
@@ -225,41 +305,104 @@ namespace StolenMeatMod
 
         internal void MaybeSpawnPredator(Vector3 position)
         {
-            if (!SaveDataManager.SpawnsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
+            try
             {
-                thisSceneSpawns = new Dictionary<string, SpawnRegionInfo>();
-                SaveDataManager.SpawnsByScene.Add(GameManager.m_ActiveScene, thisSceneSpawns);
-            }
+                if (!StolenMeatSettings.Instance.ShouldSpawnPredators)
+                    return;
 
-            if (thisSceneSpawns.Values.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns)
-            {
-                Main.DebugLog($"Too many existing predator spawns! Skipping creating new predator spawn.");
-                return;
-            }
-
-            foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
-            {
-                float dist = Vector3.Distance(position, info.Position);
-                Main.DebugLog($"Dist from dropped meat at {position} to existing predator region at {info.Position}: {dist}");
-                if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius)
+                if (!SaveDataManager.SpawnRegionsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
                 {
-                    Main.DebugLog($"Dropped meat too close to existing predator spawn at {info.Position}! Skipping creating new predator spawn.");
+                    thisSceneSpawns = new Dictionary<string, SpawnRegionInfo>();
+                    SaveDataManager.SpawnRegionsByScene.Add(GameManager.m_ActiveScene, thisSceneSpawns);
+                }
+
+                if (thisSceneSpawns.Values.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns)
+                    return;
+
+                SpawnRegionInfo closestSpawnInRange = null;
+                float closestDist = float.MaxValue;
+                foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
+                {
+                    float dist = Vector3.Distance(position, info.Position);
+                    if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius || dist < closestDist)
+                    {
+                        closestDist = dist;
+                        closestSpawnInRange = info;
+                    }
+                }
+
+                if (closestSpawnInRange != null)
+                {
+                    if (StolenMeatSettings.Instance.ShouldRefreshPredators)
+                    {
+                        closestSpawnInRange.ElapsedMinutes = 0f;
+                    }
                     return;
                 }
+
+                string spawnRegionGuid = Guid.NewGuid().ToString();
+                SpawnRegion predatorSpawnRegion = GenerateSpawnRegion(position, spawnRegionGuid);
+                thisSceneSpawns.Add(spawnRegionGuid, new SpawnRegionInfo
+                {
+                    Scene = GameManager.m_ActiveScene,
+                    Position = position,
+                    ObjectGuid = spawnRegionGuid,
+                    ElapsedMinutes = (float)StolenMeatSettings.Instance.PredatorSpawnDuration
+                });
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Error(e);
             }
 
-            thisSceneSpawns.Add("new GUID generated with new spawn region here", new SpawnRegionInfo
-            {
-                Scene = GameManager.m_ActiveScene,
-                Position = position,
-                ObjectGuid = "new GUID generated with new spawn region here",
-                DespawnTime = 0f // figure something out for this
-            });
 
             Main.DebugLog($"Triggering predator spawn! To be implemented...");
 
             // TODO: Create new spawn region with a method that is used both here and on scene load, then spawn the predator
             // TODO: Capture spawn region for periodic checking of "is this spawn region still valid? is the spawn still alive?" and if not, nuke both the spawn region and the entry in the dictionary
+        }
+
+
+        internal static SpawnRegion GenerateSpawnRegion(Vector3 position, string guid, int predatorsKilled = 0)
+        {
+            GameObject go = new GameObject("PredatorSpawnRegion");
+            go.transform.position = position;
+            ObjectGuid objectGuid = go.AddComponent<ObjectGuid>();
+            objectGuid.m_Guid = guid;
+            PdidTable.RuntimeRegister(objectGuid, objectGuid.m_Guid);
+            SpawnRegion spawnRegion = go.AddComponent<SpawnRegion>();
+            spawnRegion.m_DifficultySettings = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<SpawnRegion.DifficultyProperties>(5);
+            for (int i = 0, iMax = 5; i < iMax; i++)
+            {
+                spawnRegion.m_DifficultySettings[i] = new SpawnRegion.DifficultyProperties();
+                spawnRegion.m_DifficultySettings[i].m_MaxRespawnsPerDay = 0;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = StolenMeatSettings.Instance.PredatorQuantity - predatorsKilled;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = StolenMeatSettings.Instance.PredatorQuantity - predatorsKilled;
+            }
+            spawnRegion.m_SpawnablePrefabName = "WILDLIFE_Wolf";
+            spawnRegion.m_AiSubTypeSpawned = AiSubType.Wolf;
+            spawnRegion.m_AiTypeSpawned = AiType.Predator;
+            spawnRegion.m_ElapasedHoursNextRespawnAllowed = float.PositiveInfinity;
+            spawnRegion.m_ElapsedHoursAtLastActiveReRoll = float.PositiveInfinity;
+            spawnRegion.m_HoursNextTrapReset = float.PositiveInfinity;
+            spawnRegion.m_HoursReRollActive = float.PositiveInfinity;
+            spawnRegion.m_NumHoursBetweenRespawns = float.PositiveInfinity;
+            spawnRegion.m_SpawnablePrefab = Addressables.LoadAssetAsync<GameObject>("WILDLIFE_Wolf").WaitForCompletion();
+            return spawnRegion;
+        }
+
+        public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+        {
+            if (!StolenMeatSettings.Instance.ShouldSpawnPredators) return;
+            if (SaveDataManager.SpawnRegionsByScene == null) return;
+            if (!SaveDataManager.SpawnRegionsByScene.TryGetValue(sceneName, out Dictionary<string, SpawnRegionInfo> spawnsInScene)) return;
+            if (spawnsInScene == null) return;
+            if (spawnsInScene.Count == 0) return;
+            foreach (SpawnRegionInfo spawnRegionInfo in spawnsInScene.Values)
+            {
+                SpawnRegion spawnRegion = GenerateSpawnRegion(spawnRegionInfo.Position, spawnRegionInfo.ObjectGuid, spawnRegionInfo.PredatorsKilled);
+                spawnRegion.gameObject.SetActive(true);
+            }
         }
 
         internal static void DebugLog(string msg)
@@ -452,7 +595,7 @@ namespace StolenMeatMod
             }
 
             return;
-            
+
         }
     }
     [HarmonyPatch(typeof(PlayerManager), "PlaceMeshInWorld")]
