@@ -307,7 +307,7 @@ namespace StolenMeatMod
         {
             try
             {
-                if (!StolenMeatSettings.Instance.ShouldSpawnPredators)
+                if (!Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance))
                     return;
 
                 if (!SaveDataManager.SpawnRegionsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> thisSceneSpawns))
@@ -333,12 +333,19 @@ namespace StolenMeatMod
 
                 if (closestSpawnInRange != null)
                 {
-                    if (StolenMeatSettings.Instance.ShouldRefreshPredators)
+                    if (Utils.RollChance((float)StolenMeatSettings.Instance.PredatorRefreshChance))
                     {
-                        closestSpawnInRange.ElapsedMinutes = 0f;
+                        RefreshPack(closestSpawnInRange);
                     }
                     return;
                 }
+
+                if (!TryGetClosestSpawnRegionToStealFrom(position, out SpawnRegion spawnRegionToStealFrom))
+                {
+                    DebugLog($"Could not find a spawn region to steal population from, will not spawn predator here!");
+                    return;
+                }
+                spawnRegionToStealFrom.m_NumRespawnsPending++;
 
                 string spawnRegionGuid = Guid.NewGuid().ToString();
                 SpawnRegion predatorSpawnRegion = GenerateSpawnRegion(position, spawnRegionGuid);
@@ -354,12 +361,27 @@ namespace StolenMeatMod
             {
                 MelonLogger.Error(e);
             }
+        }
 
 
-            Main.DebugLog($"Triggering predator spawn! To be implemented...");
-
-            // TODO: Create new spawn region with a method that is used both here and on scene load, then spawn the predator
-            // TODO: Capture spawn region for periodic checking of "is this spawn region still valid? is the spawn still alive?" and if not, nuke both the spawn region and the entry in the dictionary
+        internal static bool TryGetClosestSpawnRegionToStealFrom(Vector3 position, out SpawnRegion spawnRegionToStealFrom)
+        {
+            spawnRegionToStealFrom = null;
+            float closestDist = float.MaxValue;
+            foreach (SpawnRegion spawnRegionToCompare in GameManager.GetSpawnRegionManager().m_SpawnRegions)
+            {
+                if (!spawnRegionToCompare.isActiveAndEnabled) continue;
+                if (spawnRegionToCompare.m_AiSubTypeSpawned != AiSubType.Wolf) continue;
+                if (spawnRegionToCompare.m_WolfTypeSpawned != WolfType.Normal) continue;
+                if (Math.Min(spawnRegionToCompare.GetMaxSimultaneousSpawnsDay(), spawnRegionToCompare.GetMaxSimultaneousSpawnsNight()) <= 0) continue;
+                float dist = Vector3.Distance(position, spawnRegionToCompare.transform.position);
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    spawnRegionToStealFrom = spawnRegionToCompare;
+                }
+            }
+            return spawnRegionToStealFrom != null;
         }
 
 
@@ -391,9 +413,37 @@ namespace StolenMeatMod
             return spawnRegion;
         }
 
+
+        internal static void RefreshPack(SpawnRegionInfo spawnRegionInfo)
+        {
+            Main.DebugLog($"Refreshing pack at {spawnRegionInfo.Position} with guid {spawnRegionInfo.ObjectGuid}");
+            spawnRegionInfo.ElapsedMinutes = 0f;
+
+            GameObject spawnRegionObject = PdidTable.GetGameObject(spawnRegionInfo.ObjectGuid);
+            if (spawnRegionObject == null)
+                return;
+
+            SpawnRegion spawnRegion = spawnRegionObject.GetComponent<SpawnRegion>();
+            if (spawnRegion == null) 
+                return;
+
+            if (!TryGetClosestSpawnRegionToStealFrom(spawnRegion.transform.position, out SpawnRegion spawnRegionToStealFrom))
+            {
+                DebugLog($"Could not find a spawn region to steal population from, will not spawn predator here!");
+                return;
+            }
+            spawnRegionToStealFrom.m_NumRespawnsPending++;
+
+            spawnRegionInfo.PredatorsKilled = Mathf.Max(0, spawnRegionInfo.PredatorsKilled - 1);
+            for (int i = 0, iMax = 5; i < iMax; i++)
+            {
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = StolenMeatSettings.Instance.PredatorQuantity - spawnRegionInfo.PredatorsKilled;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = StolenMeatSettings.Instance.PredatorQuantity - spawnRegionInfo.PredatorsKilled;
+            }
+        }
+
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
-            if (!StolenMeatSettings.Instance.ShouldSpawnPredators) return;
             if (SaveDataManager.SpawnRegionsByScene == null) return;
             if (!SaveDataManager.SpawnRegionsByScene.TryGetValue(sceneName, out Dictionary<string, SpawnRegionInfo> spawnsInScene)) return;
             if (spawnsInScene == null) return;

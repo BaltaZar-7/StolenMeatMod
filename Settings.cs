@@ -34,13 +34,20 @@ namespace StolenMeatMod
         public bool IncludeAnimalQuarters = false;
 
         [Section("Predator Spawn Settings")]
-        [Name("Spawn Predators on Stolen Meat")]
-        [Description("Should predators spawn upon meat being stolen? Default: Yes")]
-        public bool ShouldSpawnPredators = true;
+        [Name("Predator Spawn Chance %")]
+        [Slider(0, 100)]
+        [Description("Chance for predator spawn region to appear on stolen meat. Default: 25%")]
+        public int PredatorSpawnChance = 25;
 
-        [Name("Refresh Predator Spawns on Stolen Meat")]
-        [Description("Should predators refresh upon meat being stolen within their radius? Default: Yes")]
-        public bool ShouldRefreshPredators = true;
+        [Name("Predator Refresh Chance (%)")]
+        [Slider(0, 100)]
+        [Description("Chance for predator spawns to refresh if meat is consumed in their radius. This will reset the despawn timer and increase the current population if below maximum. Default: 75%")]
+        public int PredatorRefreshChance = 75; 
+        
+        [Name("Maximum Predator Spawn Quantity")]
+        [Slider(1, 5)]
+        [Description("Maximum Predators spawned. All packs start at one but may increase to this number if additional meat is consumed in a predator's radius. Default: 3")]
+        public int PredatorQuantity = 1;
 
         [Name("Spawned Predator Radius (meters)")]
         [Slider(50, 500)]
@@ -57,20 +64,10 @@ namespace StolenMeatMod
         [Description("Time in hours before predator spawns disappear. Default: 24")]
         public int PredatorSpawnDuration = 24;
 
-        [Name("Predator Spawn Quantity")]
-        [Slider(1, 5)]
-        [Description("Predators spawned. Default: 1")]
-        public int PredatorQuantity = 1;
-
-
         protected override void OnConfirm()
         {
             base.OnConfirm();
             Save();
-
-            MelonLogger.Msg(
-                $"[StolenMeatSettings] Saved | Hours={DespawnHours} | Chance={DespawnChancePercent} | Cured={IncludeCuredMeat}"
-            );
         }
 
         internal static void OnLoad()
