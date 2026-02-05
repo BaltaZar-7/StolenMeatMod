@@ -345,7 +345,7 @@ namespace StolenMeatMod
                     DebugLog($"Could not find a spawn region to steal population from, will not spawn predator here!");
                     return;
                 }
-                spawnRegionToStealFrom.m_NumRespawnsPending++;
+                StealFromSpawnRegion(spawnRegionToStealFrom);
 
                 string spawnRegionGuid = Guid.NewGuid().ToString();
                 SpawnRegion predatorSpawnRegion = GenerateSpawnRegion(position, spawnRegionGuid);
@@ -373,7 +373,8 @@ namespace StolenMeatMod
                 if (!spawnRegionToCompare.isActiveAndEnabled) continue;
                 if (spawnRegionToCompare.m_AiSubTypeSpawned != AiSubType.Wolf) continue;
                 if (spawnRegionToCompare.m_WolfTypeSpawned != WolfType.Normal) continue;
-                if (Math.Min(spawnRegionToCompare.GetMaxSimultaneousSpawnsDay(), spawnRegionToCompare.GetMaxSimultaneousSpawnsNight()) <= 0) continue;
+                if (spawnRegionToCompare.m_WildlifeMode != WildlifeMode.Normal) continue;
+                if (spawnRegionToCompare.CalculateTargetPopulation() <= 0) continue;
                 float dist = Vector3.Distance(position, spawnRegionToCompare.transform.position);
                 if (dist < closestDist)
                 {
@@ -382,6 +383,14 @@ namespace StolenMeatMod
                 }
             }
             return spawnRegionToStealFrom != null;
+        }
+
+
+        internal static void StealFromSpawnRegion(SpawnRegion spawnRegion)
+        {
+            UniStormWeatherSystem weatherSystem = GameManager.m_TimeOfDay.m_WeatherSystem;
+            spawnRegion.m_ElapasedHoursNextRespawnAllowed = weatherSystem.m_ElapsedHours + weatherSystem.m_ElapsedHoursAccumulator + spawnRegion.GetNumHoursBetweenRespawns();
+            spawnRegion.m_NumRespawnsPending++;
         }
 
 
