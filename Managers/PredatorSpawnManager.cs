@@ -336,7 +336,10 @@ namespace StolenMeatMod
         private static string GetRegionGuid(SpawnRegion region)
         {
             ObjectGuid guidComp = region.gameObject.GetComponent<ObjectGuid>();
-            return guidComp != null ? guidComp.m_Guid : "no-guid";
+            if (guidComp == null) return "null-objectguid";
+            if (guidComp.m_Guid != null && guidComp.m_Guid != string.Empty) return guidComp.m_Guid;
+            if (guidComp.PDID != null && guidComp.PDID != string.Empty) return guidComp.PDID;
+            return "no-guid-found";
         }
 
         private void StealFromRegion(SpawnRegionInfo stealingRegion, SpawnRegion victimRegion)
