@@ -162,21 +162,32 @@ namespace StolenMeatMod
         {
             delta = 0f;
             if (string.IsNullOrEmpty(GameManager.m_ActiveScene))
+            {
+                DebugLog("NullOrEmpty GameManager.m_ActiveScene, no update");
                 return false;
+            }
 
             float nowMinutes = GetCurrentIngameMinutes();
             if (nowMinutes <= 0f)
+            {
+                DebugLog($"NowMinutes is {nowMinutes}, no update");
                 return false;
+            }
 
             if (SaveDataManager.LastGlobalMinutes <= 0f)
             {
+                DebugLog($"SaveDataManager.LastGlobalMinutes is {SaveDataManager.LastGlobalMinutes} which is less than 0, setting to {nowMinutes} but no update");
                 SaveDataManager.LastGlobalMinutes = nowMinutes;
                 return false;
             }
 
             delta = nowMinutes - SaveDataManager.LastGlobalMinutes;
-            if (delta < UPDATE_INTERVAL_MINUTES)
+            if (delta < UPDATE_INTERVAL_MINUTES) 
+            {
+                DebugLog($"delta is {delta} which is less than {UPDATE_INTERVAL_MINUTES}, no update");
                 return false;
+            }
+
 
             SaveDataManager.LastGlobalMinutes = nowMinutes;
             return true;
