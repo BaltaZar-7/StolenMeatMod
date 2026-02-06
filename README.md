@@ -28,6 +28,8 @@ Only normal wolves are eligible, but newly created spawn regions can steal from 
 
 Packs have a base lifespan (default 24h), extended by stolen calories. Kill all wolves and the pack disperses immediately, preventing more calorie accumulation until a new pack forms.
 
+When packs expire, they return any remaining wolves to where they originally came from. In most situations this will mean immediate respawn of all remaining wolves, but if pack duration is long enough vanilla regions may respawn and some remaining wolves will disperse harmlessly into the wild.
+
 ## Settings
 
 Configurable through the in-game Mod Settings menu.
