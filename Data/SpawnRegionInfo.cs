@@ -43,5 +43,7 @@ namespace StolenMeatMod
         public bool AtZeroPopulation => CurrentPopulation <= 0;
         public bool PastExpirationTime => ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f;
         public bool ShouldDestroy => AtZeroPopulation || PastExpirationTime;
+
+        public void RecalculateCurrentPopulation(SpawnRegion spawnRegion) => CurrentPopulation = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
     }
 }

@@ -258,7 +258,7 @@ namespace StolenMeatMod
                     if (spawnRegion == null)
                         continue;
 
-                    spawnRegionInfo.CurrentPopulation = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
+                    spawnRegionInfo.RecalculateCurrentPopulation(spawnRegion);
                     if (spawnRegionInfo.ShouldDestroy)
                     {
                         MelonLogger.Msg($"Destroy signal activated. Calc: simultaneousSpawns ({spawnRegion.GetMaxSimultaneousSpawnsDay()})  - numRespawns ({spawnRegion.m_NumRespawnsPending}) - numTrapped ({spawnRegion.m_NumTrapped}) = current target pop ({spawnRegionInfo.CurrentPopulation})");
