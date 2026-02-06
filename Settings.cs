@@ -63,7 +63,7 @@ namespace StolenMeatMod
         public int PredatorSpawnDuration = 24;
 
         [Name("Calories Required per Predator")]
-        [Slider(500, 2500, 20)]
+        [Slider(500, 2500, 21)]
         [Description("How many calories required to spawn each new predator in a pack, up to the maximum allowed. Default: 1000 calories per predator")]
         public int CaloriesPerPredator = 1000;
 
