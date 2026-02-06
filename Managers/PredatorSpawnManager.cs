@@ -43,6 +43,7 @@ namespace StolenMeatMod
             {
                 SpawnRegion region = SpawnRegionFactory.Create(info.Position, info.ObjectGuid, info.CurrentCapacity);
                 region.gameObject.SetActive(true);
+                info.mLastKnownRespawnsRemaining = 0;
             }
         }
 
@@ -85,10 +86,24 @@ namespace StolenMeatMod
                 if (!TryGetSpawnRegion(info, out SpawnRegion region))
                     continue;
 
+                DetectDeaths(info, region);
                 info.RecalculateCurrentPopulation(region);
 
                 if (info.ShouldDestroy)
                     DestroySpawnRegion(info, region, toDespawn);
+            }
+        }
+
+        private void DetectDeaths(SpawnRegionInfo info, SpawnRegion region)
+        {
+            int current = region.m_NumRespawnsPending;
+            int deaths = current - info.mLastKnownRespawnsRemaining;
+            info.mLastKnownRespawnsRemaining = current;
+
+            for (int i = 0; i < deaths; i++)
+            {
+                string returnedGuid = info.RemoveRandomStolenSpawn();
+                Main.DebugLog($"[PredatorSpawn] Wolf death detected in region {info.ObjectGuid}, discarded debt to vanilla guid={returnedGuid ?? "none"}, ledger total={info.TotalStolenSpawns}");
             }
         }
 
@@ -99,10 +114,32 @@ namespace StolenMeatMod
         private void DestroySpawnRegion(SpawnRegionInfo info, SpawnRegion region, List<SpawnRegionInfo> toDespawn)
         {
             LogDestruction(info, region);
+            ReturnStolenSpawns(info);
             DespawnAllPredators(region);
             region.m_Spawns.Clear();
             GameManager.GetSpawnRegionManager().Remove(region);
             toDespawn.Add(info);
+        }
+
+        private void ReturnStolenSpawns(SpawnRegionInfo info)
+        {
+            Dictionary<string, int> toReturn = info.DrainStolenSpawns();
+            foreach (KeyValuePair<string, int> kvp in toReturn)
+            {
+                GameObject go = PdidTable.GetGameObject(kvp.Key);
+                if (go == null)
+                {
+                    Main.DebugLog($"[PredatorSpawn] Could not find vanilla region guid={kvp.Key} to return {kvp.Value} spawn(s)");
+                    continue;
+                }
+
+                SpawnRegion vanillaRegion = go.GetComponent<SpawnRegion>();
+                if (vanillaRegion == null)
+                    continue;
+
+                vanillaRegion.m_NumRespawnsPending = Math.Max(0, vanillaRegion.m_NumRespawnsPending - kvp.Value);
+                Main.DebugLog($"[PredatorSpawn] Returned {kvp.Value} spawn(s) to vanilla '{vanillaRegion.name}' guid={kvp.Key}, respawnsPending now={vanillaRegion.m_NumRespawnsPending}");
+            }
         }
 
         private void LogDestruction(SpawnRegionInfo info, SpawnRegion region)
@@ -224,7 +261,7 @@ namespace StolenMeatMod
                     break;
                 }
 
-                StealFromRegion(victim);
+                StealFromRegion(info, victim);
                 int newMax = region.GetMaxSimultaneousSpawnsDay() + 1;
                 UpdateRegionPopulation(region, newMax);
 
@@ -302,21 +339,38 @@ namespace StolenMeatMod
             return guidComp != null ? guidComp.m_Guid : "no-guid";
         }
 
-        private void StealFromRegion(SpawnRegion region)
+        private void StealFromRegion(SpawnRegionInfo stealingRegion, SpawnRegion victimRegion)
+        {
+            string victimGuid = GetRegionGuid(victimRegion);
+
+            if (GetOrCreateSceneSpawns().TryGetValue(victimGuid, out SpawnRegionInfo moddedVictim))
+            {
+                StealFromModdedRegion(stealingRegion, victimRegion, moddedVictim);
+            }
+            else
+            {
+                StealFromVanillaRegion(stealingRegion, victimRegion, victimGuid);
+            }
+        }
+
+        private void StealFromVanillaRegion(SpawnRegionInfo stealingRegion, SpawnRegion victimRegion, string victimGuid)
         {
             UniStormWeatherSystem weather = GameManager.m_TimeOfDay.m_WeatherSystem;
-            float nextRespawn = weather.m_ElapsedHours + weather.m_ElapsedHoursAccumulator + region.GetNumHoursBetweenRespawns();
-            region.m_ElapasedHoursNextRespawnAllowed = nextRespawn;
+            float nextRespawn = weather.m_ElapsedHours + weather.m_ElapsedHoursAccumulator + victimRegion.GetNumHoursBetweenRespawns();
+            victimRegion.m_ElapasedHoursNextRespawnAllowed = nextRespawn;
+            victimRegion.m_NumRespawnsPending++;
+            stealingRegion.AddStolenSpawn(victimGuid);
 
-            string regionGuid = GetRegionGuid(region);
-            if (GetOrCreateSceneSpawns().TryGetValue(regionGuid, out SpawnRegionInfo moddedRegionInfo))
-            {
-                // increment as if we killed one of ours mechanically through the mod, simplest option
-                moddedRegionInfo.PredatorsKilled++;
-                UpdateRegionPopulation(region, moddedRegionInfo.CurrentCapacity);
-            }
-            region.m_NumRespawnsPending++;
-            Main.DebugLog($"[PredatorSpawn] Stole from victim '{region.name}' guid={GetRegionGuid(region)}: respawnsPending now={region.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h");
+            Main.DebugLog($"[PredatorSpawn] Stole from vanilla '{victimRegion.name}' guid={victimGuid}: respawnsPending now={victimRegion.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h, thief ledger total={stealingRegion.TotalStolenSpawns}");
+        }
+
+        private void StealFromModdedRegion(SpawnRegionInfo thief, SpawnRegion victimRegion, SpawnRegionInfo moddedVictim)
+        {
+            moddedVictim.PredatorsKilled++;
+            UpdateRegionPopulation(victimRegion, moddedVictim.CurrentCapacity);
+            thief.TransferStolenSpawns(moddedVictim, 1);
+
+            Main.DebugLog($"[PredatorSpawn] Stole from modded '{victimRegion.name}' guid={moddedVictim.ObjectGuid}: victim capacity now={moddedVictim.CurrentCapacity}, thief ledger total={thief.TotalStolenSpawns}");
         }
 
         #endregion
