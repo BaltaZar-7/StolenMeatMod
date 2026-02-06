@@ -258,9 +258,10 @@ namespace StolenMeatMod
                     if (spawnRegion == null)
                         continue;
 
-                    spawnRegionInfo.CurrentPopulation = spawnRegion.CalculateTargetPopulation();
+                    spawnRegionInfo.CurrentPopulation = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
                     if (spawnRegionInfo.ShouldDestroy)
                     {
+                        MelonLogger.Msg($"Destroy signal activated. Calc: simultaneousSpawns ({spawnRegion.GetMaxSimultaneousSpawnsDay()})  - numRespawns ({spawnRegion.m_NumRespawnsPending}) - numTrapped ({spawnRegion.m_NumTrapped}) = current target pop ({spawnRegionInfo.CurrentPopulation})");
                         for (int i = 0, iMax = spawnRegion.m_Spawns.Count; i < iMax; i++)
                         {
                             GameObject predatorObject = spawnRegion.m_Spawns[i].gameObject;
@@ -415,6 +416,7 @@ namespace StolenMeatMod
             spawnRegion.m_HoursReRollActive = float.PositiveInfinity;
             spawnRegion.m_NumHoursBetweenRespawns = float.PositiveInfinity;
             spawnRegion.m_SpawnablePrefab = Addressables.LoadAssetAsync<GameObject>("WILDLIFE_Wolf").WaitForCompletion();
+            DebugLog($"Generated spawn region with guid {objectGuid.m_Guid} at position {position} with spawncount {spawnCount}");
             return spawnRegion;
         }
 
@@ -462,7 +464,7 @@ namespace StolenMeatMod
             if (spawnsInScene.Count == 0) return;
             foreach (SpawnRegionInfo spawnRegionInfo in spawnsInScene.Values)
             {
-                SpawnRegion spawnRegion = GenerateSpawnRegion(spawnRegionInfo.Position, spawnRegionInfo.ObjectGuid, spawnRegionInfo.PredatorsKilled);
+                SpawnRegion spawnRegion = GenerateSpawnRegion(spawnRegionInfo.Position, spawnRegionInfo.ObjectGuid, spawnRegionInfo.CurrentPopulation);
                 spawnRegion.gameObject.SetActive(true);
             }
         }
