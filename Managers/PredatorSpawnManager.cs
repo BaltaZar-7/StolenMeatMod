@@ -6,6 +6,7 @@ using MelonLoader;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using static Il2Cpp.PlayerVoice;
 
 namespace StolenMeatMod
 {
@@ -217,7 +218,7 @@ namespace StolenMeatMod
 
             for (int i = 0; i < newSlots; i++)
             {
-                if (!TryFindVictimRegion(position, out SpawnRegion victim))
+                if (!TryFindVictimRegion(info, position, out SpawnRegion victim))
                 {
                     Main.DebugLog("[PredatorSpawn] No victim region found");
                     break;
@@ -235,21 +236,21 @@ namespace StolenMeatMod
 
         #region Victim Region Finding
 
-        private bool TryFindVictimRegion(Vector3 position, out SpawnRegion result)
+        private bool TryFindVictimRegion(SpawnRegionInfo stealingRegion, Vector3 position, out SpawnRegion result)
         {
             result = null;
             float closestDist = float.MaxValue;
 
-            foreach (SpawnRegion region in GameManager.GetSpawnRegionManager().m_SpawnRegions)
+            foreach (SpawnRegion victimRegion in GameManager.GetSpawnRegionManager().m_SpawnRegions)
             {
-                if (!IsValidVictim(region))
+                if (!IsValidVictim(stealingRegion, victimRegion))
                     continue;
 
-                float dist = Vector3.Distance(position, region.transform.position);
+                float dist = Vector3.Distance(position, victimRegion.transform.position);
                 if (dist < closestDist)
                 {
                     closestDist = dist;
-                    result = region;
+                    result = victimRegion;
                 }
             }
 
@@ -259,37 +260,37 @@ namespace StolenMeatMod
             return result != null;
         }
 
-        private bool IsValidVictim(SpawnRegion region)
+        private bool IsValidVictim(SpawnRegionInfo stealingRegionInfo, SpawnRegion victimRegion)
         {
-            string guid = GetRegionGuid(region);
-            if (IsOwnSpawnRegion(guid))
+            string victimGuid = GetRegionGuid(victimRegion);
+            if (stealingRegionInfo.ObjectGuid == victimGuid)
             {
-                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: is our own spawn region");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: is self");
                 return false;
             }
-            if (!region.isActiveAndEnabled)
+            if (!victimRegion.isActiveAndEnabled)
             {
-                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: not active/enabled");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: not active/enabled");
                 return false;
             }
-            if (region.m_AiSubTypeSpawned != AiSubType.Wolf)
+            if (victimRegion.m_AiSubTypeSpawned != AiSubType.Wolf)
             {
-                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: subtype is {region.m_AiSubTypeSpawned}, not Wolf");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: subtype is {victimRegion.m_AiSubTypeSpawned}, not Wolf");
                 return false;
             }
-            if (region.m_WolfTypeSpawned != WolfType.Normal)
+            if (victimRegion.m_WolfTypeSpawned != WolfType.Normal)
             {
-                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: wolf type is {region.m_WolfTypeSpawned}, not Normal");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: wolf type is {victimRegion.m_WolfTypeSpawned}, not Normal");
                 return false;
             }
-            if (region.m_WildlifeMode != WildlifeMode.Normal)
+            if (victimRegion.m_WildlifeMode != WildlifeMode.Normal)
             {
-                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: wildlife mode is {region.m_WildlifeMode}, not Normal");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: wildlife mode is {victimRegion.m_WildlifeMode}, not Normal");
                 return false;
             }
-            if (region.CalculateTargetPopulation() <= 0)
+            if (victimRegion.CalculateTargetPopulation() <= 0)
             {
-                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: target population is {region.CalculateTargetPopulation()}");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: target population is {victimRegion.CalculateTargetPopulation()}");
                 return false;
             }
             return true;
@@ -299,14 +300,6 @@ namespace StolenMeatMod
         {
             ObjectGuid guidComp = region.gameObject.GetComponent<ObjectGuid>();
             return guidComp != null ? guidComp.m_Guid : "no-guid";
-        }
-
-        private static bool IsOwnSpawnRegion(string guid)
-        {
-            if (!SaveDataManager.SpawnRegionsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> spawns))
-                return false;
-
-            return spawns.ContainsKey(guid);
         }
 
         private void StealFromRegion(SpawnRegion region)
