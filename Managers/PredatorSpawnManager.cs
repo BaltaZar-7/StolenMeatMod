@@ -143,6 +143,19 @@ namespace StolenMeatMod
 
                 SpawnRegionInfo info = FindOrCreateRegion(position, sceneSpawns);
 
+                if (info.AccumulatedCalories <= 0f)
+                {
+                    if (RollSpawnChance())
+                    {
+                        Main.DebugLog("[AccumulateCalories] Spawn region activated!");
+                    }
+                    else
+                    {
+                        Main.DebugLog("[AccumulateCalories] Spawn chance failed, aborting. Next time!");
+                        return;
+                    }
+                }
+
                 int prevCapacity = info.MaxCapacity;
                 float prevElapsedMinutes = info.ElapsedMinutes;
                 info.AccumulatedCalories += calories;
@@ -204,12 +217,6 @@ namespace StolenMeatMod
 
             for (int i = 0; i < newSlots; i++)
             {
-                if (!RollSpawnChance())
-                {
-                    Main.DebugLog("[PredatorSpawn] Spawn chance roll failed");
-                    continue;
-                }
-
                 if (!TryFindVictimRegion(position, out SpawnRegion victim))
                 {
                     Main.DebugLog("[PredatorSpawn] No victim region found");

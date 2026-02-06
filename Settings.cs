@@ -42,11 +42,6 @@ namespace StolenMeatMod
         [Description("Chance for predator pack to appear on stolen meat if no nearby packs exist. Default: 25%")]
         public int PredatorSpawnChance = 25;
 
-        [Name("Predator Refresh Chance (%)")]
-        [Slider(0, 100)]
-        [Description("Chance for nearby predator spawns to accumulate calories and grow if meat is consumed in their radius. Default: 75%")]
-        public int PredatorRefreshChance = 75;
-
         [Name("Maximum Predator Spawn Quantity")]
         [Slider(1, 10)]
         [Description("Maximum Predators spawned per pack. All packs start at one but may increase to this number if enough additional meat is consumed in a predator's radius. Default: 3")]
@@ -67,7 +62,7 @@ namespace StolenMeatMod
         [Description("Initial Time in hours before predator spawns disappear. Default: 24")]
         public int PredatorSpawnDuration = 24;
 
-        [Name("Additional Predator Time per Calorie (Calories per Hour)")]
+        [Name("Calories Required per Predator")]
         [Slider(500, 2500, 20)]
         [Description("How many calories required to spawn each new predator in a pack, up to the maximum allowed. Default: 1000 calories per predator")]
         public int CaloriesPerPredator = 1000;
