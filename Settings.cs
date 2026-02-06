@@ -4,6 +4,9 @@ using ModSettings;
 
 namespace StolenMeatMod
 {
+    /// <summary>
+    /// User-configurable settings for the Stolen Meat Mod.
+    /// </summary>
     internal class StolenMeatSettings : JsonModSettings
     {
         public static StolenMeatSettings Instance { get; private set; }

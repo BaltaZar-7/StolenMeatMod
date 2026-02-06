@@ -31,7 +31,7 @@ namespace StolenMeatMod
             if (gi == null)
                 return;
 
-            string guid = Main.GetObjectGuid(gi);
+            string guid = FoodUtils.GetObjectGuid(gi);
             if (string.IsNullOrEmpty(guid))
             {
                 Main.DebugLog("[RegisterMeat] GUID NULL");
