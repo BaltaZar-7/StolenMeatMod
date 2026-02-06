@@ -347,7 +347,7 @@ namespace StolenMeatMod
                 foreach (SpawnRegionInfo info in thisSceneSpawns.Values)
                 {
                     float dist = Vector3.Distance(position, info.Position);
-                    if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius || dist < closestDist)
+                    if (dist <= StolenMeatSettings.Instance.SpawnedPredatorRadius && dist < closestDist)
                     {
                         closestDist = dist;
                         closestSpawnInRange = info;
