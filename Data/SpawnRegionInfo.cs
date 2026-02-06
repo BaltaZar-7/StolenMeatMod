@@ -29,9 +29,7 @@ namespace StolenMeatMod
         internal int mLastKnownRespawnsRemaining;
 
         [JsonIgnore]
-        public int MaxCapacity => Math.Min(
-            (int)(AccumulatedCalories / StolenMeatSettings.Instance.CaloriesPerPredator),
-            StolenMeatSettings.Instance.PredatorQuantity);
+        public int MaxCapacity => Math.Min( (int)(AccumulatedCalories / CaloriesPerPredator), PredatorQuantity);
 
         [JsonIgnore]
         public int CurrentCapacity

@@ -197,7 +197,7 @@ namespace StolenMeatMod
                 int prevCapacity = info.MaxCapacity;
                 float prevElapsedMinutes = info.ElapsedMinutes;
                 info.AccumulatedCalories += calories;
-                float additionalHoursAccumulated = calories / StolenMeatSettings.Instance.AdditionalPredatorSpawnDuration;
+                float additionalHoursAccumulated = calories / AdditionalPredatorSpawnDuration;
                 float additionalMinutesAccumulated = additionalHoursAccumulated * 60f;
                 info.ElapsedMinutes -= additionalMinutesAccumulated;
                 int newCapacity = info.MaxCapacity;
@@ -388,21 +388,15 @@ namespace StolenMeatMod
 
         #region Helpers
 
-        private bool RollSpawnChance()
-        {
-            return Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance);
-        }
+        private bool RollSpawnChance() =>Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance);
 
-        private bool IsAtMaxSpawns(Dictionary<string, SpawnRegionInfo> spawns)
-        {
-            return spawns.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns;
-        }
+        private bool IsAtMaxSpawns(Dictionary<string, SpawnRegionInfo> spawns) => spawns.Count >= MaxSimultaneousSpawns;
 
         private SpawnRegionInfo FindClosestInRadius(Vector3 position, Dictionary<string, SpawnRegionInfo> spawns)
         {
             SpawnRegionInfo closest = null;
             float closestDist = float.MaxValue;
-            float maxRadius = StolenMeatSettings.Instance.SpawnedPredatorRadius;
+            float maxRadius = SpawnedPredatorRadius;
 
             foreach (SpawnRegionInfo info in spawns.Values)
             {
