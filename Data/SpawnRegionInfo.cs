@@ -1,15 +1,16 @@
 ﻿#nullable disable
 using Il2Cpp;
 using Newtonsoft.Json;
+using System;
 using UnityEngine;
 
 namespace StolenMeatMod
 {
     /// <summary>
     /// Tracks a predator spawn region created when meat is stolen.
-    /// Manages population, expiration, and position state.
+    /// Manages population, calorie accumulation, and expiration state.
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     internal class SpawnRegionInfo
     {
         public string Scene;
@@ -19,22 +20,24 @@ namespace StolenMeatMod
         public string ObjectGuid;
         public float ElapsedMinutes;
         public int PredatorsKilled;
+        public float AccumulatedCalories;
 
-        [JsonIgnore] 
+        [JsonIgnore]
+        public int SpawnCapacity => Math.Min(
+            (int)(AccumulatedCalories / Constants.CaloriesPerPredator),
+            StolenMeatSettings.Instance.PredatorQuantity);
+
+        [JsonIgnore]
         public int CurrentPopulation
         {
-            get =>  StolenMeatSettings.Instance.PredatorQuantity - PredatorsKilled;
-            set =>  PredatorsKilled = StolenMeatSettings.Instance.PredatorQuantity - value;
+            get => SpawnCapacity - PredatorsKilled;
+            set => PredatorsKilled = SpawnCapacity - value;
         }
-
 
         [JsonIgnore]
         public Vector3 Position
         {
-            get
-            {
-                return new Vector3(PositionX, PositionY, PositionZ);
-            }
+            get => new Vector3(PositionX, PositionY, PositionZ);
             set
             {
                 PositionX = value.x;
@@ -43,7 +46,7 @@ namespace StolenMeatMod
             }
         }
 
-        public bool AtMaxPopulation => CurrentPopulation >= StolenMeatSettings.Instance.PredatorQuantity;
+        public bool AtMaxPopulation => CurrentPopulation >= SpawnCapacity;
         public bool AtZeroPopulation => CurrentPopulation <= 0;
         public bool PastExpirationTime => ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f;
         public bool ShouldDestroy => AtZeroPopulation || PastExpirationTime;

@@ -6,20 +6,19 @@ using MelonLoader;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 
 namespace StolenMeatMod
 {
     /// <summary>
-    /// Manages predator spawn regions - creation, refresh, and cleanup.
+    /// Manages predator spawn regions - creation, calorie accumulation, and cleanup.
     /// </summary>
     internal class PredatorSpawnManager
     {
         #region Public API
 
-        internal void OnMeatDespawned(Vector3 position)
+        internal void OnMeatDespawned(Vector3 position, float calories)
         {
-            MaybeSpawnPredator(position);
+            AccumulateCalories(position, calories);
         }
 
         internal List<SpawnRegionInfo> Update(float delta)
@@ -131,24 +130,32 @@ namespace StolenMeatMod
 
         #endregion
 
-        #region Predator Spawning
+        #region Calorie Accumulation
 
-        private void MaybeSpawnPredator(Vector3 position)
+        private void AccumulateCalories(Vector3 position, float calories)
         {
             try
             {
-                if (!RollSpawnChance())
-                    return;
-
                 Dictionary<string, SpawnRegionInfo> sceneSpawns = GetOrCreateSceneSpawns();
 
                 if (IsAtMaxSpawns(sceneSpawns))
                     return;
 
-                if (TryRefreshExistingPack(position, sceneSpawns))
-                    return;
+                SpawnRegionInfo info = FindOrCreateRegion(position, sceneSpawns);
 
-                TryCreateNewSpawn(position, sceneSpawns);
+                int prevCapacity = info.SpawnCapacity;
+                float prevElapsedMinutes = info.ElapsedMinutes;
+                info.AccumulatedCalories += calories;
+                float additionalHoursAccumulated = calories / StolenMeatSettings.Instance.AdditionalPredatorSpawnDuration;
+                float additionalMinutesAccumulated = additionalHoursAccumulated * 60f;
+                info.ElapsedMinutes -= additionalMinutesAccumulated;
+                int newCapacity = info.SpawnCapacity;
+
+                int newSlots = newCapacity - prevCapacity;
+
+                Main.DebugLog($"[PredatorSpawn] Accumulated {calories:F0} cal on region {info.ObjectGuid} | total calories={info.AccumulatedCalories:F0} | capacity {prevCapacity}->{newCapacity} | elapsedMinutes {prevElapsedMinutes}->{info.ElapsedMinutes}");
+
+                TrySpawnWolves(info, position, newSlots);
             }
             catch (Exception e)
             {
@@ -156,119 +163,79 @@ namespace StolenMeatMod
             }
         }
 
-        private bool RollSpawnChance()
+        private SpawnRegionInfo FindOrCreateRegion(Vector3 position, Dictionary<string, SpawnRegionInfo> sceneSpawns)
         {
-            return Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance);
+            SpawnRegionInfo existing = FindClosestInRadius(position, sceneSpawns);
+            if (existing != null)
+            {
+                Main.DebugLog($"[PredatorSpawn] Found existing region {existing.ObjectGuid} at {Vector3.Distance(position, existing.Position):F0}m");
+                return existing;
+            }
+
+            return RegisterNewRegion(position, sceneSpawns);
         }
 
-        private bool IsAtMaxSpawns(Dictionary<string, SpawnRegionInfo> spawns)
-        {
-            return spawns.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns;
-        }
-
-        private bool TryRefreshExistingPack(Vector3 position, Dictionary<string, SpawnRegionInfo> spawns)
-        {
-            SpawnRegionInfo closest = FindClosestInRadius(position, spawns);
-            if (closest == null)
-            {
-                Main.DebugLog($"[PredatorSpawn] No existing pack within {StolenMeatSettings.Instance.SpawnedPredatorRadius}m radius, will try new spawn");
-                return false;
-            }
-
-            float dist = Vector3.Distance(position, closest.Position);
-            Main.DebugLog($"[PredatorSpawn] Found existing pack at {dist:F0}m, rolling refresh chance ({StolenMeatSettings.Instance.PredatorRefreshChance}%)");
-
-            if (Utils.RollChance((float)StolenMeatSettings.Instance.PredatorRefreshChance))
-            {
-                RefreshPack(closest);
-            }
-            else
-            {
-                Main.DebugLog("[PredatorSpawn] Refresh chance roll failed, no refresh or new spawn");
-            }
-
-            return true;
-        }
-
-        private void TryCreateNewSpawn(Vector3 position, Dictionary<string, SpawnRegionInfo> spawns)
-        {
-            if (!TryFindDonorRegion(position, out SpawnRegion donor))
-            {
-                Main.DebugLog("[PredatorSpawn] No donor region found, cannot spawn predator");
-                return;
-            }
-
-            StealFromRegion(donor);
-            RegisterNewSpawn(position, spawns);
-        }
-
-        #endregion
-
-        #region Pack Management
-
-        private void RefreshPack(SpawnRegionInfo info)
-        {
-            Main.DebugLog($"[PredatorSpawn] Refreshing pack at {info.Position} | pop={info.CurrentPopulation}/{StolenMeatSettings.Instance.PredatorQuantity} killed={info.PredatorsKilled} elapsed={info.ElapsedMinutes:F1}min");
-            info.ElapsedMinutes = 0f;
-
-            if (info.AtMaxPopulation)
-            {
-                Main.DebugLog($"[PredatorSpawn] Pack already at max population ({info.CurrentPopulation}), timer reset only");
-                return;
-            }
-
-            if (!TryGetSpawnRegion(info, out SpawnRegion region))
-            {
-                Main.DebugLog($"[PredatorSpawn] Could not find SpawnRegion GameObject for guid {info.ObjectGuid}");
-                return;
-            }
-
-            Main.DebugLog($"[PredatorSpawn] SpawnRegion state: maxDay={region.GetMaxSimultaneousSpawnsDay()} respawnsPending={region.m_NumRespawnsPending} trapped={region.m_NumTrapped} spawns={region.m_Spawns.Count}");
-
-            if (!TryFindDonorRegion(region.transform.position, out SpawnRegion donor))
-            {
-                Main.DebugLog("[PredatorSpawn] No donor region for pack refresh");
-                return;
-            }
-
-            Main.DebugLog($"[PredatorSpawn] Donor region: targetPop={donor.CalculateTargetPopulation()} respawnsPending={donor.m_NumRespawnsPending} spawns={donor.m_Spawns.Count}");
-
-            donor.m_NumRespawnsPending++;
-            info.CurrentPopulation++;
-            UpdateRegionPopulation(region, info.CurrentPopulation);
-            Main.DebugLog($"[PredatorSpawn] Pack refreshed: new pop={info.CurrentPopulation}, donor respawnsPending now={donor.m_NumRespawnsPending}");
-        }
-
-        private void RegisterNewSpawn(Vector3 position, Dictionary<string, SpawnRegionInfo> spawns)
+        private SpawnRegionInfo RegisterNewRegion(Vector3 position, Dictionary<string, SpawnRegionInfo> sceneSpawns)
         {
             string guid = Guid.NewGuid().ToString();
-            SpawnRegionFactory.Create(position, guid);
+            SpawnRegionFactory.Create(position, guid, 0);
 
             var info = new SpawnRegionInfo
             {
                 Scene = GameManager.m_ActiveScene,
                 Position = position,
                 ObjectGuid = guid,
-                ElapsedMinutes = StolenMeatSettings.Instance.PredatorSpawnDuration
+                ElapsedMinutes = 0f,
+                AccumulatedCalories = 0f
             };
-            info.CurrentPopulation = 1;
-            spawns.Add(guid, info);
+            sceneSpawns.Add(guid, info);
 
-            Main.DebugLog($"[PredatorSpawn] Created new spawn region {guid}");
+            Main.DebugLog($"[PredatorSpawn] Created new region {guid} at {position}");
+            return info;
+        }
+
+        private void TrySpawnWolves(SpawnRegionInfo info, Vector3 position, int newSlots)
+        {
+            if (newSlots <= 0)
+                return;
+
+            if (!TryGetSpawnRegion(info, out SpawnRegion region))
+                return;
+
+            for (int i = 0; i < newSlots; i++)
+            {
+                if (!RollSpawnChance())
+                {
+                    Main.DebugLog("[PredatorSpawn] Spawn chance roll failed");
+                    continue;
+                }
+
+                if (!TryFindVictimRegion(position, out SpawnRegion victim))
+                {
+                    Main.DebugLog("[PredatorSpawn] No victim region found");
+                    break;
+                }
+
+                StealFromRegion(victim);
+                int newMax = region.GetMaxSimultaneousSpawnsDay() + 1;
+                UpdateRegionPopulation(region, newMax);
+
+                Main.DebugLog($"[PredatorSpawn] Wolf stolen for region {info.ObjectGuid}, spawnRegion max now {newMax}");
+            }
         }
 
         #endregion
 
-        #region Donor Region Finding
+        #region Victim Region Finding
 
-        private bool TryFindDonorRegion(Vector3 position, out SpawnRegion result)
+        private bool TryFindVictimRegion(Vector3 position, out SpawnRegion result)
         {
             result = null;
             float closestDist = float.MaxValue;
 
             foreach (SpawnRegion region in GameManager.GetSpawnRegionManager().m_SpawnRegions)
             {
-                if (!IsValidDonor(region))
+                if (!IsValidVictim(region))
                     continue;
 
                 float dist = Vector3.Distance(position, region.transform.position);
@@ -280,42 +247,42 @@ namespace StolenMeatMod
             }
 
             if (result != null)
-                Main.DebugLog($"[PredatorSpawn] Selected donor '{result.name}' guid={GetRegionGuid(result)} at {closestDist:F0}m");
+                Main.DebugLog($"[PredatorSpawn] Selected victim '{result.name}' guid={GetRegionGuid(result)} at {closestDist:F0}m");
 
             return result != null;
         }
 
-        private bool IsValidDonor(SpawnRegion region)
+        private bool IsValidVictim(SpawnRegion region)
         {
             string guid = GetRegionGuid(region);
             if (IsOwnSpawnRegion(guid))
             {
-                Main.DebugLog($"[PredatorSpawn] Donor rejected '{region.name}' guid={guid}: is our own spawn region");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: is our own spawn region");
                 return false;
             }
             if (!region.isActiveAndEnabled)
             {
-                Main.DebugLog($"[PredatorSpawn] Donor rejected '{region.name}' guid={guid}: not active/enabled");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: not active/enabled");
                 return false;
             }
             if (region.m_AiSubTypeSpawned != AiSubType.Wolf)
             {
-                Main.DebugLog($"[PredatorSpawn] Donor rejected '{region.name}' guid={guid}: subtype is {region.m_AiSubTypeSpawned}, not Wolf");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: subtype is {region.m_AiSubTypeSpawned}, not Wolf");
                 return false;
             }
             if (region.m_WolfTypeSpawned != WolfType.Normal)
             {
-                Main.DebugLog($"[PredatorSpawn] Donor rejected '{region.name}' guid={guid}: wolf type is {region.m_WolfTypeSpawned}, not Normal");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: wolf type is {region.m_WolfTypeSpawned}, not Normal");
                 return false;
             }
             if (region.m_WildlifeMode != WildlifeMode.Normal)
             {
-                Main.DebugLog($"[PredatorSpawn] Donor rejected '{region.name}' guid={guid}: wildlife mode is {region.m_WildlifeMode}, not Normal");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: wildlife mode is {region.m_WildlifeMode}, not Normal");
                 return false;
             }
             if (region.CalculateTargetPopulation() <= 0)
             {
-                Main.DebugLog($"[PredatorSpawn] Donor rejected '{region.name}' guid={guid}: target population is {region.CalculateTargetPopulation()}");
+                Main.DebugLog($"[PredatorSpawn] Victim rejected '{region.name}' guid={guid}: target population is {region.CalculateTargetPopulation()}");
                 return false;
             }
             return true;
@@ -341,12 +308,22 @@ namespace StolenMeatMod
             float nextRespawn = weather.m_ElapsedHours + weather.m_ElapsedHoursAccumulator + region.GetNumHoursBetweenRespawns();
             region.m_ElapasedHoursNextRespawnAllowed = nextRespawn;
             region.m_NumRespawnsPending++;
-            Main.DebugLog($"[PredatorSpawn] Stole from donor '{region.name}' guid={GetRegionGuid(region)}: respawnsPending now={region.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h");
+            Main.DebugLog($"[PredatorSpawn] Stole from victim '{region.name}' guid={GetRegionGuid(region)}: respawnsPending now={region.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h");
         }
 
         #endregion
 
         #region Helpers
+
+        private bool RollSpawnChance()
+        {
+            return Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance);
+        }
+
+        private bool IsAtMaxSpawns(Dictionary<string, SpawnRegionInfo> spawns)
+        {
+            return spawns.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns;
+        }
 
         private SpawnRegionInfo FindClosestInRadius(Vector3 position, Dictionary<string, SpawnRegionInfo> spawns)
         {
