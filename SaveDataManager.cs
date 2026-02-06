@@ -126,6 +126,15 @@ namespace StolenMeatMod
 
             Main.DebugLog("[SaveData] Loaded");
         }
+
+
+        internal static void OnNewgame()
+        {
+            MeatByScene.Clear();
+            SpawnRegionsByScene.Clear();
+            LastGlobalMinutes = 0f;
+            Main.DebugLog("[SaveData] Clearing data for new game");
+        }
     }
 
     [HarmonyPatch(typeof(SaveGameSlots), nameof(SaveGameSlots.WriteSlotToDisk),
@@ -145,6 +154,25 @@ namespace StolenMeatMod
         private static void Postfix()
         {
             SaveDataManager.OnLoadGame();
+        }
+    }
+
+    [HarmonyPatch(typeof(SaveGameSlots), nameof(SaveGameSlots.CreateSlot), new Type[] { typeof(string), typeof(SaveSlotType), typeof(uint), typeof(Episode) })]
+    internal class NewGamePatch
+    {
+        private static void Postfix()
+        {
+            SaveDataManager.OnNewgame();
+        }
+    }
+
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.DoExitToMainMenu))]
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.LoadMainMenu))]
+    internal class MainMenuPatch
+    {
+        private static void Postfix()
+        {
+            SaveDataManager.OnNewgame();
         }
     }
 }
