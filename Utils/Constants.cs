@@ -29,7 +29,7 @@ namespace StolenMeatMod
         #region Wildlife
 
         internal const string WildlifeWolf = "WILDLIFE_Wolf";
-        internal const int PredatorQuantity = 3;
+        internal const int PredatorQuantity = 5;
         internal const int SpawnedPredatorRadius = 250;
         internal const int MaxSimultaneousSpawns = 3;
         internal const int CaloriesPerPredator = 1000;
