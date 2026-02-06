@@ -16,6 +16,14 @@ namespace StolenMeatMod
         public float ElapsedMinutes;
         public int PredatorsKilled;
 
+        [JsonIgnore] 
+        public int CurrentPopulation
+        {
+            get =>  StolenMeatSettings.Instance.PredatorQuantity - PredatorsKilled;
+            set =>  PredatorsKilled = StolenMeatSettings.Instance.PredatorQuantity - value;
+        }
+
+
         [JsonIgnore]
         public Vector3 Position
         {
@@ -30,5 +38,10 @@ namespace StolenMeatMod
                 PositionZ = value.z;
             }
         }
+
+        public bool AtMaxPopulation => CurrentPopulation >= StolenMeatSettings.Instance.PredatorQuantity;
+        public bool AtZeroPopulation => CurrentPopulation <= 0;
+        public bool PastExpirationTime => ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f;
+        public bool ShouldDestroy => AtZeroPopulation || PastExpirationTime;
     }
 }

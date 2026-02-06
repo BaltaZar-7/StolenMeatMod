@@ -258,11 +258,8 @@ namespace StolenMeatMod
                     if (spawnRegion == null)
                         continue;
 
-                    spawnRegionInfo.PredatorsKilled = StolenMeatSettings.Instance.PredatorQuantity - spawnRegion.GetMaxSimultaneousSpawnsDay() + spawnRegion.m_NumRespawnsPending;
-                    DebugLog($"Predators Killed: {spawnRegionInfo.PredatorsKilled} = {StolenMeatSettings.Instance.PredatorQuantity} - {spawnRegion.GetMaxSimultaneousSpawnsDay()} + {spawnRegion.m_NumRespawnsPending}");
-
-                    if (spawnRegionInfo.PredatorsKilled >= StolenMeatSettings.Instance.PredatorQuantity
-                        || spawnRegionInfo.ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f)
+                    spawnRegionInfo.CurrentPopulation = spawnRegion.CalculateTargetPopulation();
+                    if (spawnRegionInfo.ShouldDestroy)
                     {
                         for (int i = 0, iMax = spawnRegion.m_Spawns.Count; i < iMax; i++)
                         {
@@ -385,7 +382,6 @@ namespace StolenMeatMod
             return spawnRegionToStealFrom != null;
         }
 
-
         internal static void StealFromSpawnRegion(SpawnRegion spawnRegion)
         {
             UniStormWeatherSystem weatherSystem = GameManager.m_TimeOfDay.m_WeatherSystem;
@@ -394,7 +390,7 @@ namespace StolenMeatMod
         }
 
 
-        internal static SpawnRegion GenerateSpawnRegion(Vector3 position, string guid, int predatorsKilled = 0)
+        internal static SpawnRegion GenerateSpawnRegion(Vector3 position, string guid, int spawnCount = 1)
         {
             GameObject go = new GameObject("PredatorSpawnRegion");
             go.transform.position = position;
@@ -407,8 +403,8 @@ namespace StolenMeatMod
             {
                 spawnRegion.m_DifficultySettings[i] = new SpawnRegion.DifficultyProperties();
                 spawnRegion.m_DifficultySettings[i].m_MaxRespawnsPerDay = 0;
-                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = StolenMeatSettings.Instance.PredatorQuantity - predatorsKilled;
-                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = StolenMeatSettings.Instance.PredatorQuantity - predatorsKilled;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = spawnCount;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = spawnCount;
             }
             spawnRegion.m_SpawnablePrefabName = "WILDLIFE_Wolf";
             spawnRegion.m_AiSubTypeSpawned = AiSubType.Wolf;
@@ -422,11 +418,17 @@ namespace StolenMeatMod
             return spawnRegion;
         }
 
-
+        /// <summary>
+        /// Steals a wolf from a nearby region, if available.
+        /// </summary>
+        /// <param name="spawnRegionInfo">SpawnRegionInfo to add a wolf to</param>
         internal static void RefreshPack(SpawnRegionInfo spawnRegionInfo)
         {
             Main.DebugLog($"Refreshing pack at {spawnRegionInfo.Position} with guid {spawnRegionInfo.ObjectGuid}");
             spawnRegionInfo.ElapsedMinutes = 0f;
+
+            if (spawnRegionInfo.AtMaxPopulation)
+                return;
 
             GameObject spawnRegionObject = PdidTable.GetGameObject(spawnRegionInfo.ObjectGuid);
             if (spawnRegionObject == null)
@@ -441,13 +443,14 @@ namespace StolenMeatMod
                 DebugLog($"Could not find a spawn region to steal population from, will not spawn predator here!");
                 return;
             }
-            spawnRegionToStealFrom.m_NumRespawnsPending++;
 
-            spawnRegionInfo.PredatorsKilled = Mathf.Max(0, spawnRegionInfo.PredatorsKilled - 1);
+            spawnRegionToStealFrom.m_NumRespawnsPending++;
+            spawnRegionInfo.CurrentPopulation++;
+
             for (int i = 0, iMax = 5; i < iMax; i++)
             {
-                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = StolenMeatSettings.Instance.PredatorQuantity - spawnRegionInfo.PredatorsKilled;
-                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = StolenMeatSettings.Instance.PredatorQuantity - spawnRegionInfo.PredatorsKilled;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsDay = spawnRegionInfo.CurrentPopulation;
+                spawnRegion.m_DifficultySettings[i].m_MaxSimultaneousSpawnsNight = spawnRegionInfo.CurrentPopulation;
             }
         }
 
