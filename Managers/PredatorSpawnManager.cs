@@ -314,6 +314,14 @@ namespace StolenMeatMod
             UniStormWeatherSystem weather = GameManager.m_TimeOfDay.m_WeatherSystem;
             float nextRespawn = weather.m_ElapsedHours + weather.m_ElapsedHoursAccumulator + region.GetNumHoursBetweenRespawns();
             region.m_ElapasedHoursNextRespawnAllowed = nextRespawn;
+
+            string regionGuid = GetRegionGuid(region);
+            if (GetOrCreateSceneSpawns().TryGetValue(regionGuid, out SpawnRegionInfo moddedRegionInfo))
+            {
+                // increment as if we killed one of ours mechanically through the mod, simplest option
+                moddedRegionInfo.PredatorsKilled++;
+                UpdateRegionPopulation(region, moddedRegionInfo.CurrentCapacity);
+            }
             region.m_NumRespawnsPending++;
             Main.DebugLog($"[PredatorSpawn] Stole from victim '{region.name}' guid={GetRegionGuid(region)}: respawnsPending now={region.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h");
         }

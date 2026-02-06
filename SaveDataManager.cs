@@ -24,6 +24,15 @@ namespace StolenMeatMod
         internal static Dictionary<string, Dictionary<string, SpawnRegionInfo>> SpawnRegionsByScene
             = new Dictionary<string, Dictionary<string, SpawnRegionInfo>>();
 
+        internal static Dictionary<string, SpawnRegionInfo> SpawnRegionsThisScene
+        {
+            get
+            {
+                SpawnRegionsByScene.TryGetValue(GameManager.m_ActiveScene, out Dictionary<string, SpawnRegionInfo> result);
+                return result;
+            }
+        }
+
         internal static float LastGlobalMinutes;
 
         internal static void RegisterMeat(string scene, GearItem gi)

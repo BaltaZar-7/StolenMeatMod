@@ -19,9 +19,9 @@ namespace StolenMeatMod
 
         [Section("Despawn Chance")]
         [Name("Despawn Chance (%)")]
-        [Description("Chance that the meat will be stolen at each roll event. Default: 40%")]
+        [Description("Chance that the meat will be stolen at each roll event. Default: 25%")]
         [Slider(10, 100)]
-        public int DespawnChancePercent = 40;
+        public int DespawnChancePercent = 25;
 
         [Section("Meat Types")]
         [Name("Include Cured Meat")]
@@ -39,8 +39,8 @@ namespace StolenMeatMod
         [Section("Predator Spawn Settings")]
         [Name("Predator Spawn Chance %")]
         [Slider(0, 100)]
-        [Description("Chance for predator pack to appear on stolen meat if no nearby packs exist. Default: 25%")]
-        public int PredatorSpawnChance = 25;
+        [Description("Chance for predator pack to appear on stolen meat if no nearby packs exist. Default: 10%")]
+        public int PredatorSpawnChance = 10;
 
         [Name("Maximum Predator Spawn Quantity")]
         [Slider(1, 10)]
@@ -49,7 +49,7 @@ namespace StolenMeatMod
 
         [Name("Spawned Predator Radius (meters)")]
         [Slider(50, 500)]
-        [Description("Minimum distance required between two meat-spawned predators. Meat stolen within this radius of an existing predator spawn will not trigger a new predator spawn. Default: 100")]
+        [Description("Minimum distance required between two meat-spawned predators. Meat stolen within this radius of an existing predator spawn will not trigger a new predator spawn. Default: 250")]
         public int SpawnedPredatorRadius = 250;
 
         [Name("Max Predator Packs Spawned per Scene")]
