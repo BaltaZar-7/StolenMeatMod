@@ -325,7 +325,15 @@ namespace StolenMeatMod
                 Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: wildlife mode is {victimRegion.m_WildlifeMode}, not Normal");
                 return false;
             }
-            if (victimRegion.CalculateTargetPopulation() <= 0)
+            if (GetOrCreateSceneSpawns().TryGetValue(victimGuid, out SpawnRegionInfo moddedVictim))
+            {
+                if (moddedVictim.CurrentCapacity <= 0)
+                {
+                    Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: modded capacity is {moddedVictim.CurrentCapacity}");
+                    return false;
+                }
+            }
+            else if (victimRegion.CalculateTargetPopulation() <= 0)
             {
                 Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: target population is {victimRegion.CalculateTargetPopulation()}");
                 return false;
