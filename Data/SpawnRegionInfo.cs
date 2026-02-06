@@ -23,15 +23,15 @@ namespace StolenMeatMod
         public float AccumulatedCalories;
 
         [JsonIgnore]
-        public int SpawnCapacity => Math.Min(
+        public int MaxCapacity => Math.Min(
             (int)(AccumulatedCalories / StolenMeatSettings.Instance.CaloriesPerPredator),
             StolenMeatSettings.Instance.PredatorQuantity);
 
         [JsonIgnore]
-        public int CurrentPopulation
+        public int CurrentCapacity
         {
-            get => SpawnCapacity - PredatorsKilled;
-            set => PredatorsKilled = SpawnCapacity - value;
+            get => MaxCapacity - PredatorsKilled;
+            set => PredatorsKilled = MaxCapacity - value;
         }
 
         [JsonIgnore]
@@ -46,17 +46,17 @@ namespace StolenMeatMod
             }
         }
 
-        public bool AtMaxPopulation => CurrentPopulation >= SpawnCapacity;
-        public bool AtZeroPopulation => CurrentPopulation <= 0;
+        public bool AtMaxPopulation => CurrentCapacity >= MaxCapacity;
+        public bool AtZeroPopulation => CurrentCapacity <= 0;
         public bool PastExpirationTime => ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f;
         public bool ShouldDestroy => AtZeroPopulation || PastExpirationTime;
 
         public void RecalculateCurrentPopulation(SpawnRegion spawnRegion)
         {
-            int before = CurrentPopulation;
-            CurrentPopulation = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
-            if (CurrentPopulation != before)
-                Main.DebugLog($"[SpawnRegionInfo] Population recalculated: {before} -> {CurrentPopulation} (maxDay={spawnRegion.GetMaxSimultaneousSpawnsDay()} trapped={spawnRegion.m_NumTrapped} respawnsPending={spawnRegion.m_NumRespawnsPending})");
+            int before = CurrentCapacity;
+            CurrentCapacity = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
+            if (CurrentCapacity != before)
+                Main.DebugLog($"[SpawnRegionInfo] Population recalculated: {before} -> {CurrentCapacity} (maxDay={spawnRegion.GetMaxSimultaneousSpawnsDay()} trapped={spawnRegion.m_NumTrapped} respawnsPending={spawnRegion.m_NumRespawnsPending})");
         }
     }
 }

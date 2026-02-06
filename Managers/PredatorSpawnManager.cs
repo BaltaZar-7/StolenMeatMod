@@ -40,7 +40,7 @@ namespace StolenMeatMod
 
             foreach (SpawnRegionInfo info in spawns.Values)
             {
-                SpawnRegion region = SpawnRegionFactory.Create(info.Position, info.ObjectGuid, info.CurrentPopulation);
+                SpawnRegion region = SpawnRegionFactory.Create(info.Position, info.ObjectGuid, info.CurrentCapacity);
                 region.gameObject.SetActive(true);
             }
         }
@@ -106,7 +106,7 @@ namespace StolenMeatMod
 
         private void LogDestruction(SpawnRegionInfo info, SpawnRegion region)
         {
-            MelonLogger.Msg($"[PredatorSpawn] Destroying region. simultaneousSpawns({region.GetMaxSimultaneousSpawnsDay()}) - respawns({region.m_NumRespawnsPending}) - trapped({region.m_NumTrapped}) = pop({info.CurrentPopulation})");
+            MelonLogger.Msg($"[PredatorSpawn] Destroying region. simultaneousSpawns({region.GetMaxSimultaneousSpawnsDay()}) - respawns({region.m_NumRespawnsPending}) - trapped({region.m_NumTrapped}) = pop({info.CurrentCapacity})");
         }
 
         private void DespawnAllPredators(SpawnRegion region)
@@ -143,13 +143,13 @@ namespace StolenMeatMod
 
                 SpawnRegionInfo info = FindOrCreateRegion(position, sceneSpawns);
 
-                int prevCapacity = info.SpawnCapacity;
+                int prevCapacity = info.MaxCapacity;
                 float prevElapsedMinutes = info.ElapsedMinutes;
                 info.AccumulatedCalories += calories;
                 float additionalHoursAccumulated = calories / StolenMeatSettings.Instance.AdditionalPredatorSpawnDuration;
                 float additionalMinutesAccumulated = additionalHoursAccumulated * 60f;
                 info.ElapsedMinutes -= additionalMinutesAccumulated;
-                int newCapacity = info.SpawnCapacity;
+                int newCapacity = info.MaxCapacity;
 
                 int newSlots = newCapacity - prevCapacity;
 
