@@ -165,4 +165,14 @@ namespace StolenMeatMod
             SaveDataManager.OnNewgame();
         }
     }
+
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.DoExitToMainMenu))]
+    [HarmonyPatch(typeof(GameManager), nameof(GameManager.LoadMainMenu))]
+    internal class MainMenuPatch
+    {
+        private static void Postfix()
+        {
+            SaveDataManager.OnNewgame();
+        }
+    }
 }

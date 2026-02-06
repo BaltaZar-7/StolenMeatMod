@@ -161,22 +161,19 @@ namespace StolenMeatMod
         private bool ShouldUpdate(out float delta)
         {
             delta = 0f;
-            if (string.IsNullOrEmpty(GameManager.m_ActiveScene))
+            if (string.IsNullOrEmpty(GameManager.m_ActiveScene) || GameManager.m_ActiveScene.Contains("MainMenu"))
             {
-                DebugLog("NullOrEmpty GameManager.m_ActiveScene, no update");
                 return false;
             }
 
             float nowMinutes = GetCurrentIngameMinutes();
             if (nowMinutes <= 0f)
             {
-                DebugLog($"NowMinutes is {nowMinutes}, no update");
                 return false;
             }
 
             if (SaveDataManager.LastGlobalMinutes <= 0f)
             {
-                DebugLog($"SaveDataManager.LastGlobalMinutes is {SaveDataManager.LastGlobalMinutes} which is less than 0, setting to {nowMinutes} but no update");
                 SaveDataManager.LastGlobalMinutes = nowMinutes;
                 return false;
             }
@@ -184,7 +181,6 @@ namespace StolenMeatMod
             delta = nowMinutes - SaveDataManager.LastGlobalMinutes;
             if (delta < UPDATE_INTERVAL_MINUTES) 
             {
-                DebugLog($"delta is {delta} which is less than {UPDATE_INTERVAL_MINUTES}, no update");
                 return false;
             }
 
