@@ -139,29 +139,53 @@ namespace StolenMeatMod
         // =========================
         public override void OnUpdate()
         {
-            if (string.IsNullOrEmpty(GameManager.m_ActiveScene))
+            if (!ShouldUpdate(out float delta))
                 return;
+
+            Main.DebugLog($"[Timer] Global tick +{delta:F1} min");
+
+            List<MeatInfo> meatsToDespawn = GetMeatsToDespawn(delta);
+            List<SpawnRegionInfo> spawnRegionsToDespawn = GetSpawnRegionsToDespawn(delta);
+
+            foreach (MeatInfo meat in meatsToDespawn)
+            {
+                SaveDataManager.RemoveMeat(meat.Scene, meat.ObjectGuid);
+            }
+
+            foreach (SpawnRegionInfo spawnRegionInfo in spawnRegionsToDespawn)
+            {
+                SaveDataManager.RemoveSpawn(spawnRegionInfo.Scene, spawnRegionInfo.ObjectGuid);
+            }
+        }
+
+        private bool ShouldUpdate(out float delta)
+        {
+            delta = 0f;
+            if (string.IsNullOrEmpty(GameManager.m_ActiveScene))
+                return false;
 
             float nowMinutes = GetCurrentIngameMinutes();
             if (nowMinutes <= 0f)
-                return;
+                return false;
 
             if (SaveDataManager.LastGlobalMinutes <= 0f)
             {
                 SaveDataManager.LastGlobalMinutes = nowMinutes;
-                return;
+                return false;
             }
 
-            float delta = nowMinutes - SaveDataManager.LastGlobalMinutes;
+            delta = nowMinutes - SaveDataManager.LastGlobalMinutes;
             if (delta < UPDATE_INTERVAL_MINUTES)
-                return;
+                return false;
 
             SaveDataManager.LastGlobalMinutes = nowMinutes;
-            Main.DebugLog($"[Timer] Global tick +{delta:F1} min");
+            return true;
+        }
 
+
+        private List<MeatInfo> GetMeatsToDespawn(float delta)
+        {
             List<MeatInfo> meatsToDespawn = new List<MeatInfo>();
-            List<SpawnRegionInfo> spawnRegionsToDespawn = new List<SpawnRegionInfo>();
-
             foreach (KeyValuePair<string, Dictionary<string, MeatInfo>> kvp in SaveDataManager.MeatByScene)
             {
                 string scene = kvp.Key;
@@ -224,6 +248,13 @@ namespace StolenMeatMod
                 }
             }
 
+            return meatsToDespawn;
+        }
+
+
+        private List<SpawnRegionInfo> GetSpawnRegionsToDespawn(float delta)
+        {
+            List<SpawnRegionInfo> spawnRegionsToDespawn = new List<SpawnRegionInfo>();
             foreach (KeyValuePair<string, Dictionary<string, SpawnRegionInfo>> kvp in SaveDataManager.SpawnRegionsByScene)
             {
                 string scene = kvp.Key;
@@ -237,7 +268,7 @@ namespace StolenMeatMod
                 {
                     foreach (SpawnRegionInfo spawnRegionInfo in spawnInScene.Values)
                     {
-                        spawnRegionInfo.ElapsedMinutes += delta; 
+                        spawnRegionInfo.ElapsedMinutes += delta;
                         if (spawnRegionInfo.ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f)
                         {
                             spawnRegionsToDespawn.Add(spawnRegionInfo);
@@ -274,23 +305,17 @@ namespace StolenMeatMod
                             GameObject.Destroy(predatorObject);
                         }
                         spawnRegion.m_Spawns.Clear();
-                        
+
                         GameManager.GetSpawnRegionManager().Remove(spawnRegion); //this effectively neuters the region, as regions are run by the manager mechanically.
                         spawnRegionsToDespawn.Add(spawnRegionInfo);
                     }
                 }
             }
 
-            foreach (MeatInfo meat in meatsToDespawn)
-            {
-                SaveDataManager.RemoveMeat(meat.Scene, meat.ObjectGuid);
-            }
-
-            foreach (SpawnRegionInfo spawnRegionInfo in spawnRegionsToDespawn)
-            {
-                SaveDataManager.RemoveSpawn(spawnRegionInfo.Scene, spawnRegionInfo.ObjectGuid);
-            }
+            return spawnRegionsToDespawn;
         }
+
+
         // Helpers
         internal static float GetCurrentIngameMinutes()
         {
@@ -424,7 +449,7 @@ namespace StolenMeatMod
         /// Steals a wolf from a nearby region, if available.
         /// </summary>
         /// <param name="spawnRegionInfo">SpawnRegionInfo to add a wolf to</param>
-        internal static void RefreshPack(SpawnRegionInfo spawnRegionInfo)
+        internal void RefreshPack(SpawnRegionInfo spawnRegionInfo)
         {
             Main.DebugLog($"Refreshing pack at {spawnRegionInfo.Position} with guid {spawnRegionInfo.ObjectGuid}");
             spawnRegionInfo.ElapsedMinutes = 0f;
