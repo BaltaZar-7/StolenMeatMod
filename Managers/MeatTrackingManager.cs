@@ -12,9 +12,9 @@ namespace StolenMeatMod
     /// </summary>
     internal class MeatTrackingManager
     {
-        private readonly Action<Vector3> mOnMeatDespawned;
+        private readonly Action<Vector3, float> mOnMeatDespawned;
 
-        internal MeatTrackingManager(Action<Vector3> onMeatDespawned)
+        internal MeatTrackingManager(Action<Vector3, float> onMeatDespawned)
         {
             mOnMeatDespawned = onMeatDespawned;
         }
@@ -128,11 +128,12 @@ namespace StolenMeatMod
         {
             toDespawn.Add(meat);
             Vector3 position = gi.transform.position;
+            float calories = FoodUtils.GetCalories(gi);
             UnityEngine.Object.Destroy(gi.gameObject);
 
-            Main.DebugLog($"[MeatTracking] Expired food destroyed GUID={meat.ObjectGuid} roll={roll:F2}");
+            Main.DebugLog($"[MeatTracking] Expired food destroyed GUID={meat.ObjectGuid} roll={roll:F2} calories={calories:F0}");
 
-            mOnMeatDespawned?.Invoke(position);
+            mOnMeatDespawned?.Invoke(position, calories);
         }
 
         private void ResetTimer(MeatInfo meat, float roll)

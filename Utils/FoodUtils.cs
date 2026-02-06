@@ -17,6 +17,9 @@ namespace StolenMeatMod
             if (gi.m_InPlayerInventory || gi.m_InsideContainer)
                 return false;
 
+            if (StolenMeatSettings.Instance == null)
+                return false;
+
             if (StolenMeatSettings.Instance.IncludeAnimalQuarters && IsAnimalQuarter(gi))
                 return true;
 
@@ -44,6 +47,15 @@ namespace StolenMeatMod
                 return false;
 
             return food.m_IsMeat || food.m_IsFish;
+        }
+
+        internal static float GetCalories(GearItem gi)
+        {
+            FoodItem food = gi.GetComponent<FoodItem>();
+            if (food == null)
+                return 0f;
+
+            return food.m_CaloriesRemaining;
         }
 
         internal static string GetObjectGuid(GearItem gi)
