@@ -1,4 +1,5 @@
 #nullable disable
+global using static StolenMeatMod.Constants;
 using System.Collections.Generic;
 
 namespace StolenMeatMod
@@ -28,6 +29,11 @@ namespace StolenMeatMod
         #region Wildlife
 
         internal const string WildlifeWolf = "WILDLIFE_Wolf";
+        internal const int PredatorQuantity = 3;
+        internal const int SpawnedPredatorRadius = 250;
+        internal const int MaxSimultaneousSpawns = 3;
+        internal const int CaloriesPerPredator = 1000;
+        internal const int AdditionalPredatorSpawnDuration = 500;
 
         #endregion
 

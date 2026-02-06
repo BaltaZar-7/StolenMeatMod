@@ -43,6 +43,7 @@ namespace StolenMeatMod
             {
                 SpawnRegion region = SpawnRegionFactory.Create(info.Position, info.ObjectGuid, info.CurrentCapacity);
                 region.gameObject.SetActive(true);
+                info.mLastKnownRespawnsRemaining = 0;
             }
         }
 
@@ -85,10 +86,24 @@ namespace StolenMeatMod
                 if (!TryGetSpawnRegion(info, out SpawnRegion region))
                     continue;
 
+                DetectDeaths(info, region);
                 info.RecalculateCurrentPopulation(region);
 
                 if (info.ShouldDestroy)
                     DestroySpawnRegion(info, region, toDespawn);
+            }
+        }
+
+        private void DetectDeaths(SpawnRegionInfo info, SpawnRegion region)
+        {
+            int current = region.m_NumRespawnsPending;
+            int deaths = current - info.mLastKnownRespawnsRemaining;
+            info.mLastKnownRespawnsRemaining = current;
+
+            for (int i = 0; i < deaths; i++)
+            {
+                string returnedGuid = info.RemoveRandomStolenSpawn();
+                Main.DebugLog($"[PredatorSpawn] Wolf death detected in region {info.ObjectGuid}, discarded debt to vanilla guid={returnedGuid ?? "none"}, ledger total={info.TotalStolenSpawns}");
             }
         }
 
@@ -99,10 +114,32 @@ namespace StolenMeatMod
         private void DestroySpawnRegion(SpawnRegionInfo info, SpawnRegion region, List<SpawnRegionInfo> toDespawn)
         {
             LogDestruction(info, region);
+            ReturnStolenSpawns(info);
             DespawnAllPredators(region);
             region.m_Spawns.Clear();
             GameManager.GetSpawnRegionManager().Remove(region);
             toDespawn.Add(info);
+        }
+
+        private void ReturnStolenSpawns(SpawnRegionInfo info)
+        {
+            Dictionary<string, int> toReturn = info.DrainStolenSpawns();
+            foreach (KeyValuePair<string, int> kvp in toReturn)
+            {
+                GameObject go = PdidTable.GetGameObject(kvp.Key);
+                if (go == null)
+                {
+                    Main.DebugLog($"[PredatorSpawn] Could not find vanilla region guid={kvp.Key} to return {kvp.Value} spawn(s)");
+                    continue;
+                }
+
+                SpawnRegion vanillaRegion = go.GetComponent<SpawnRegion>();
+                if (vanillaRegion == null)
+                    continue;
+
+                vanillaRegion.m_NumRespawnsPending = Math.Max(0, vanillaRegion.m_NumRespawnsPending - kvp.Value);
+                Main.DebugLog($"[PredatorSpawn] Returned {kvp.Value} spawn(s) to vanilla '{vanillaRegion.name}' guid={kvp.Key}, respawnsPending now={vanillaRegion.m_NumRespawnsPending}");
+            }
         }
 
         private void LogDestruction(SpawnRegionInfo info, SpawnRegion region)
@@ -160,7 +197,7 @@ namespace StolenMeatMod
                 int prevCapacity = info.MaxCapacity;
                 float prevElapsedMinutes = info.ElapsedMinutes;
                 info.AccumulatedCalories += calories;
-                float additionalHoursAccumulated = calories / StolenMeatSettings.Instance.AdditionalPredatorSpawnDuration;
+                float additionalHoursAccumulated = calories / AdditionalPredatorSpawnDuration;
                 float additionalMinutesAccumulated = additionalHoursAccumulated * 60f;
                 info.ElapsedMinutes -= additionalMinutesAccumulated;
                 int newCapacity = info.MaxCapacity;
@@ -224,7 +261,7 @@ namespace StolenMeatMod
                     break;
                 }
 
-                StealFromRegion(victim);
+                StealFromRegion(info, victim);
                 int newMax = region.GetMaxSimultaneousSpawnsDay() + 1;
                 UpdateRegionPopulation(region, newMax);
 
@@ -288,7 +325,15 @@ namespace StolenMeatMod
                 Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: wildlife mode is {victimRegion.m_WildlifeMode}, not Normal");
                 return false;
             }
-            if (victimRegion.CalculateTargetPopulation() <= 0)
+            if (GetOrCreateSceneSpawns().TryGetValue(victimGuid, out SpawnRegionInfo moddedVictim))
+            {
+                if (moddedVictim.CurrentCapacity <= 0)
+                {
+                    Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: modded capacity is {moddedVictim.CurrentCapacity}");
+                    return false;
+                }
+            }
+            else if (victimRegion.CalculateTargetPopulation() <= 0)
             {
                 Main.DebugLog($"[PredatorSpawn] Victim rejected '{victimRegion.name}' guid={victimGuid}: target population is {victimRegion.CalculateTargetPopulation()}");
                 return false;
@@ -299,45 +344,59 @@ namespace StolenMeatMod
         private static string GetRegionGuid(SpawnRegion region)
         {
             ObjectGuid guidComp = region.gameObject.GetComponent<ObjectGuid>();
-            return guidComp != null ? guidComp.m_Guid : "no-guid";
+            if (guidComp == null) return "null-objectguid";
+            if (guidComp.m_Guid != null && guidComp.m_Guid != string.Empty) return guidComp.m_Guid;
+            if (guidComp.PDID != null && guidComp.PDID != string.Empty) return guidComp.PDID;
+            return "no-guid-found";
         }
 
-        private void StealFromRegion(SpawnRegion region)
+        private void StealFromRegion(SpawnRegionInfo stealingRegion, SpawnRegion victimRegion)
+        {
+            string victimGuid = GetRegionGuid(victimRegion);
+
+            if (GetOrCreateSceneSpawns().TryGetValue(victimGuid, out SpawnRegionInfo moddedVictim))
+            {
+                StealFromModdedRegion(stealingRegion, victimRegion, moddedVictim);
+            }
+            else
+            {
+                StealFromVanillaRegion(stealingRegion, victimRegion, victimGuid);
+            }
+        }
+
+        private void StealFromVanillaRegion(SpawnRegionInfo stealingRegion, SpawnRegion victimRegion, string victimGuid)
         {
             UniStormWeatherSystem weather = GameManager.m_TimeOfDay.m_WeatherSystem;
-            float nextRespawn = weather.m_ElapsedHours + weather.m_ElapsedHoursAccumulator + region.GetNumHoursBetweenRespawns();
-            region.m_ElapasedHoursNextRespawnAllowed = nextRespawn;
+            float nextRespawn = weather.m_ElapsedHours + weather.m_ElapsedHoursAccumulator + victimRegion.GetNumHoursBetweenRespawns();
+            victimRegion.m_ElapasedHoursNextRespawnAllowed = nextRespawn;
+            victimRegion.m_NumRespawnsPending++;
+            stealingRegion.AddStolenSpawn(victimGuid);
 
-            string regionGuid = GetRegionGuid(region);
-            if (GetOrCreateSceneSpawns().TryGetValue(regionGuid, out SpawnRegionInfo moddedRegionInfo))
-            {
-                // increment as if we killed one of ours mechanically through the mod, simplest option
-                moddedRegionInfo.PredatorsKilled++;
-                UpdateRegionPopulation(region, moddedRegionInfo.CurrentCapacity);
-            }
-            region.m_NumRespawnsPending++;
-            Main.DebugLog($"[PredatorSpawn] Stole from victim '{region.name}' guid={GetRegionGuid(region)}: respawnsPending now={region.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h");
+            Main.DebugLog($"[PredatorSpawn] Stole from vanilla '{victimRegion.name}' guid={victimGuid}: respawnsPending now={victimRegion.m_NumRespawnsPending}, nextRespawnAt={nextRespawn:F2}h, thief ledger total={stealingRegion.TotalStolenSpawns}");
+        }
+
+        private void StealFromModdedRegion(SpawnRegionInfo thief, SpawnRegion victimRegion, SpawnRegionInfo moddedVictim)
+        {
+            moddedVictim.PredatorsKilled++;
+            UpdateRegionPopulation(victimRegion, moddedVictim.CurrentCapacity);
+            thief.TransferStolenSpawns(moddedVictim, 1);
+
+            Main.DebugLog($"[PredatorSpawn] Stole from modded '{victimRegion.name}' guid={moddedVictim.ObjectGuid}: victim capacity now={moddedVictim.CurrentCapacity}, thief ledger total={thief.TotalStolenSpawns}");
         }
 
         #endregion
 
         #region Helpers
 
-        private bool RollSpawnChance()
-        {
-            return Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance);
-        }
+        private bool RollSpawnChance() =>Utils.RollChance((float)StolenMeatSettings.Instance.PredatorSpawnChance);
 
-        private bool IsAtMaxSpawns(Dictionary<string, SpawnRegionInfo> spawns)
-        {
-            return spawns.Count >= StolenMeatSettings.Instance.MaxSimultaneousSpawns;
-        }
+        private bool IsAtMaxSpawns(Dictionary<string, SpawnRegionInfo> spawns) => spawns.Count >= MaxSimultaneousSpawns;
 
         private SpawnRegionInfo FindClosestInRadius(Vector3 position, Dictionary<string, SpawnRegionInfo> spawns)
         {
             SpawnRegionInfo closest = null;
             float closestDist = float.MaxValue;
-            float maxRadius = StolenMeatSettings.Instance.SpawnedPredatorRadius;
+            float maxRadius = SpawnedPredatorRadius;
 
             foreach (SpawnRegionInfo info in spawns.Values)
             {
