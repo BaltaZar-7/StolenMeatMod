@@ -5,8 +5,12 @@ using UnityEngine;
 
 namespace StolenMeatMod
 {
+    /// <summary>
+    /// Tracks a predator spawn region created when meat is stolen.
+    /// Manages population, expiration, and position state.
+    /// </summary>
     [System.Serializable]
-    class SpawnRegionInfo
+    internal class SpawnRegionInfo
     {
         public string Scene;
         public float PositionX;
@@ -44,6 +48,12 @@ namespace StolenMeatMod
         public bool PastExpirationTime => ElapsedMinutes >= StolenMeatSettings.Instance.PredatorSpawnDuration * 60f;
         public bool ShouldDestroy => AtZeroPopulation || PastExpirationTime;
 
-        public void RecalculateCurrentPopulation(SpawnRegion spawnRegion) => CurrentPopulation = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
+        public void RecalculateCurrentPopulation(SpawnRegion spawnRegion)
+        {
+            int before = CurrentPopulation;
+            CurrentPopulation = spawnRegion.GetMaxSimultaneousSpawnsDay() - spawnRegion.m_NumTrapped - spawnRegion.m_NumRespawnsPending;
+            if (CurrentPopulation != before)
+                Main.DebugLog($"[SpawnRegionInfo] Population recalculated: {before} -> {CurrentPopulation} (maxDay={spawnRegion.GetMaxSimultaneousSpawnsDay()} trapped={spawnRegion.m_NumTrapped} respawnsPending={spawnRegion.m_NumRespawnsPending})");
+        }
     }
 }

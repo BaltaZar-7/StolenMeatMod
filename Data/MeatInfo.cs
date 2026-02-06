@@ -1,10 +1,12 @@
 ﻿#nullable disable
-using UnityEngine;
 
 namespace StolenMeatMod
 {
+    /// <summary>
+    /// Tracks a single piece of meat dropped in the world for despawn timing.
+    /// </summary>
     [System.Serializable]
-    class MeatInfo
+    internal class MeatInfo
     {
         public string Scene;
         public string ObjectGuid;
