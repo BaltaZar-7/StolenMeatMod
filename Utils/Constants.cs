@@ -43,12 +43,6 @@ namespace StolenMeatMod
 
         #endregion
 
-        #region Calories
-
-        internal const float CaloriesPerPredator = 1000f;
-
-        #endregion
-
         #region Defaults
 
         internal const float DefaultDespawnHours = 8f;

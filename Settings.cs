@@ -68,9 +68,14 @@ namespace StolenMeatMod
         public int PredatorSpawnDuration = 24;
 
         [Name("Additional Predator Time per Calorie (Calories per Hour)")]
-        [Slider(100, 5000, 50)]
-        [Description("How much additional time do predator packs stick around for each calorie stolen (measured in calories per hour). Default: 1000 calories per additional hour")]
-        public int AdditionalPredatorSpawnDuration = 1000;
+        [Slider(500, 2500, 20)]
+        [Description("How many calories required to spawn each new predator in a pack, up to the maximum allowed. Default: 1000 calories per predator")]
+        public int CaloriesPerPredator = 1000;
+
+        [Name("Additional Predator Time per Calorie (Calories per Hour)")]
+        [Slider(100, 2500, 25)]
+        [Description("How much additional time do predator packs stick around for each calorie stolen (measured in calories per hour). Default: 500 calories per additional hour")]
+        public int AdditionalPredatorSpawnDuration = 500;
 
         protected override void OnConfirm()
         {

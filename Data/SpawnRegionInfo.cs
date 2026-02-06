@@ -24,7 +24,7 @@ namespace StolenMeatMod
 
         [JsonIgnore]
         public int SpawnCapacity => Math.Min(
-            (int)(AccumulatedCalories / Constants.CaloriesPerPredator),
+            (int)(AccumulatedCalories / StolenMeatSettings.Instance.CaloriesPerPredator),
             StolenMeatSettings.Instance.PredatorQuantity);
 
         [JsonIgnore]
