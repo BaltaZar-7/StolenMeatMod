@@ -30,6 +30,12 @@ Packs have a base lifespan (default: 24 hours), extended by stolen calories. Kil
 
 When packs expire, they return any remaining wolves to where they originally came from. In most situations this will mean immediate respawn of all remaining wolves, but if pack duration is long enough vanilla regions may respawn and some remaining wolves will disperse harmlessly into the wild.
 
+## Installation
+
+Download and install dependancy Moddata.  
+Download and place the dll file into your \Mods folder.  
+Change the settings in ModSettings to your liking!  
+
 ## Settings
 
 Configurable through the in-game Mod Settings menu.
