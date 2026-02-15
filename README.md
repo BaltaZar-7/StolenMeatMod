@@ -32,7 +32,7 @@ When packs expire, they return any remaining wolves to where they originally cam
 
 ## Installation
 
-Download and install dependancy Moddata.  
+Download and install dependancy mods: Moddata and ModSettings  
 Download and place the dll file into your \Mods folder.  
 Change the settings in ModSettings to your liking!  
 
