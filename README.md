@@ -1,6 +1,7 @@
 # Stolen Meat Mod
 
-MelonLoader mod for The Long Dark. Drop meat outside, wildlife comes and takes it - then sticks around.
+MelonLoader mod for The Long Dark. Drop meat outside, wildlife comes and takes it - then sticks around.  
+This mod is made with cooperation between Monsieurmeh and me. The basic idea was to force the player to manage their meat piles in a realistic way. Monsieurmeh took it to another level adding predator spawns on top of stolen meat.  
 
 ## How It Works
 
@@ -63,3 +64,8 @@ Raw meat and fish are always tracked. These toggles control extras.
 |---|---|---|---|
 | **Spawn Chance (%)** | 10 | 0 - 100 | Chance each meat theft in a new area begins accumulating a wolf pack. |
 | **Pack Duration (hours)** | 24 | 8 - 72 | Base lifespan before the pack despawns. |
+
+## Thank you for downloading!
+Mod for The Long Dark game created by Hinterland Studios  
+Modtemplate by Digitalzombie  
+Made by BaltaZar and MonsieurMeh  
