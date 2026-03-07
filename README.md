@@ -69,3 +69,4 @@ Raw meat and fish are always tracked. These toggles control extras.
 Mod for The Long Dark game created by Hinterland Studios  
 Modtemplate by Digitalzombie  
 Made by BaltaZar and MonsieurMeh  
+[![Github All Releases](https://img.shields.io/github/downloads/BaltaZar-7/StolenMeatMod/total.svg)]()
