@@ -68,6 +68,7 @@ Raw meat and fish are always tracked. These toggles control extras.
 ## Thank you for downloading!
 Mod for The Long Dark game created by Hinterland Studios  
 Modtemplate by Digitalzombie  
+Assistance from LLM was utilized in the development of this code.  
 Made by BaltaZar and MonsieurMeh  
 If you want to generously support me financially, here is where you can. Thank you very much! Don't forget Meh neither!  
 https://www.patreon.com/c/baltazar777/membership  
